@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import { ChevronLeft, ChevronRight, Home, MapPin, Trees, Mountain, Maximize2, Volume2, VolumeX } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Home, MapPin, Mountain, History, Shield, Trees, Volume2, VolumeX } from 'lucide-react'
 import { useTransitionStore } from '../../store/transitionStore'
 import { auth } from '../../../lib/firebase'
 import { doc, updateDoc } from 'firebase/firestore'
@@ -11,67 +11,37 @@ import { db } from '../../../lib/firebase'
 const storyPanels = [
     {
         id: 1,
-        title: "Cahaya di Istana Hijau",
-        subtitle: "Bab 1: Zaman Keemasan",
-        icon: Trees,
-        scene: "Hutan Purba Asia",
-        video: "/dongeng/orangutan/Panel/Panel1.mp4",
-        accentColor: "#10B981",
-        story: `Dengarlah, anak muda... Jauh sebelum peta-peta modern digambar, dunia kita adalah hamparan hijau yang tak bertepi. Di masa itu, hiduplah para Penjaga Rimba.
+        title: "Penjaga Ujung Kulon",
+        subtitle: "Bab 1: Benteng Terakhir",
+        icon: History,
+        scene: "Semenanjung Ujung Kulon",
+        video: "/dongeng/badak/Panel/Badak1.mp4",
+        accentColor: "#4B5563",
+        story: `Di ujung paling barat pulau Jawa, di mana hutan bertemu dengan deburan ombak Samudera Hindia, hiduplah sang legenda yang sangat pemalu... Badak Jawa.
 
-Mereka bukan sekadar hewan, mereka adalah kerabat kita, berbagi 97% jalinan kehidupan yang sama dalam DNA mereka.
+Ia adalah mamalia besar terlangka di dunia. Dengan satu cula kecil yang berharga, ia telah mendiami hutan-hutan tropis kita sejak ribuan tahun lalu. Dahulu, ia berkelana hingga ke pedalaman Asia, namun kini, Ujung Kulon menjadi benteng pertahanan terakhirnya di seluruh alam semesta.
 
-Lihatlah ke atas kanopi itu! Itulah Zaman Keemasan. Pohon-pohon raksasa setinggi langit menjadi istana mereka. Di sana, hiduplah tiga bersaudara: Kala yang kekar, Sumara yang ramping, dan si bungsu Tapa yang berbulu keriting.
-
-Mereka adalah penguasa "jembatan alam". Tahukah kalian? Di masa purba itu, leluhur mereka menjelajahi daratan yang sangat luas, mulai dari China Selatan hingga Vietnam. Mereka hidup bebas di bawah sinar matahari yang menembus celah daun, berayun dengan tangan-tangan panjang yang kuat. Namun, alam mulai berbisik tentang perubahan besar...`,
+Tubuhnya yang kekar seperti memakai baju zirah perak, melangkah pelan di antara rimbunnya pohon-pohon purba. Ia adalah penjaga kesunyian rimba, yang keberadaannya hampir tak pernah terlihat oleh mata manusia secara langsung.`,
     },
     {
         id: 2,
-        title: "Langkah di Atas Tanah Harapan",
-        subtitle: "Bab 2: Migrasi Besar",
-        icon: MapPin,
-        scene: "Paparan Sunda",
-        video: "/dongeng/orangutan/Panel/Panel2.mp4",
-        accentColor: "#D4A574",
-        story: `Suatu ketika, hutan mulai mengering. Kelompok besar Penjaga Rimba ini harus membuat keputusan yang berani: Migrasi Besar.
+        title: "Cula Harapan yang Rapuh",
+        subtitle: "Bab 2: Melawan Kepunahan",
+        icon: Shield,
+        scene: "Rimba Hujan Tropis",
+        video: "/dongeng/badak/Panel/Badak2.mp4",
+        accentColor: "#15803D",
+        story: `Namun, sang ksatria berbaju zirah ini berada dalam bahaya besar. Jumlah mereka kini tak lebih dari seratus ekor. Mereka berjuang melawan waktu, bencana alam, dan penyakit yang mengintai di balik rimbunnya dahan.
 
-Mereka turun dari singgasana pohon dan mulai berjalan di atas tanah — sesuatu yang sangat melelahkan bagi kaum mereka.
+Lihatlah tatapannya yang tenang namun waspada... Ia tidak meminta banyak, hanya kedamaian untuk membesarkan anak-anaknya di tanah leluhur mereka.
 
-Bayangkan barisan panjang itu... Induk-induk menggendong bayi mereka erat-erat di punggung. Mereka melintasi Paparan Sunda, daratan luas yang dulu menyambungkan Asia dengan pulau-pulau kita saat air laut masih surut di zaman es.
+Tanpa bantuan dan perlindunganmu, cerita tentang sang pemilik cula tunggal ini mungkin hanya akan menjadi dongeng sebelum tidur bagi generasi mendatang. Petualanganmu di sini sangat berarti, untuk memastikan jejak kaki sang raksasa tetap membekas di tanah Jawa untuk selamanya.
 
-Angin kencang menerpa bulu merah mereka, membawa aroma laut dari selatan. Meski lelah, mata mereka tetap menatap cakrawala dengan tekad baja. Mereka mencari rumah baru di mana pohon-pohon selalu berbuah.
-
-Namun, takdir memiliki rencana lain...`,
-    },
-    {
-        id: 3,
-        title: "Perpisahan di Tepi Tiga Dunia",
-        subtitle: "Bab 3: Perpisahan Tiga Saudara",
-        icon: Mountain,
-        scene: "Nusantara",
-        video: "/dongeng/orangutan/Panel/Panel3.mp4",
-        accentColor: "#8B6914",
-        story: `Saat mereka tiba di tanah Nusantara, air laut mulai naik perlahan, menenggelamkan daratan yang mereka lalui. Tiga bersaudara itu menyadari bahwa mereka harus berpisah agar seluruh kaumnya bisa bertahan hidup.
-
-Di tepi hutan rawa yang luas, Kala berhenti. "Aku akan menjaga tempat ini," ucapnya. Ia menetap di Kalimantan, tumbuh menjadi raksasa yang kekar dengan bantalan pipi yang gagah.
-
-Sumara memilih perbukitan hijau yang rimbun. "Aku akan memanjat hingga ke puncak tertinggi," katanya. Ia pergi ke Sumatra, menjadi sosok yang lebih ramping dan lincah agar mudah berpindah di antara dahan yang rapat.
-
-Dan si bungsu Tapa, ia memilih hutan pegunungan yang berkabut dan dingin di Batang Toru. Dengan bulu yang lebih keriting untuk menahan hawa sejuk, ia menjadi penjaga rahasia yang baru kita temukan kembali identitasnya di tahun 2017.
-
-Mereka saling bertukar tatap untuk terakhir kalinya sebelum laut benar-benar memisahkan pulau-pulau itu. Sejak saat itulah, satu keluarga besar itu terbagi menjadi tiga spesies yang berbeda.
-
-───
-
-Kini, ketiga bersaudara itu sedang menangis. Rumah yang mereka perjuangkan ribuan tahun lalu kini perlahan sirna karena api dan mesin manusia. Mereka berstatus Kritis, selangkah lagi menuju keheningan abadi.
-
-Ingatlah, mereka adalah "Petani Hutan". Tanpa mereka yang menyebarkan biji-bijian, hutan kita akan mati. Dan jika hutan mati, kita pun akan kehilangan napas.
-
-Dongeng ini belum selesai, anak muda... dan kamulah yang akan menulis bab selanjutnya.`,
+Masa depan sang legenda ada di tanganmu, anak muda.`,
     }
 ]
 
-export default function DongengOrangutanPage() {
+export default function DongengBadakPage() {
     const router = useRouter()
     const { startTransition } = useTransitionStore()
     const [currentPanel, setCurrentPanel] = useState(0)
@@ -149,19 +119,19 @@ export default function DongengOrangutanPage() {
 
     const handleGoToMission = async () => {
         if (typeof window !== 'undefined') {
-            localStorage.setItem('orangutan_story_watched', 'true')
-            localStorage.setItem('current_mission', 'orangutan')
+            localStorage.setItem('badak_story_watched', 'true')
+            localStorage.setItem('current_mission', 'badak')
             localStorage.setItem('mission_status', 'active')
-            localStorage.setItem('mission_objective', 'Tangkap Orang Utan di hutan barat')
+            localStorage.setItem('mission_objective', 'Temukan Badak Jawa di hutan Ujung Kulon')
             
             // Sync to Firestore if user is logged in
             const user = auth.currentUser
             if (user) {
                 try {
                     await updateDoc(doc(db, 'players', user.uid), {
-                        mission: 'orangutan',
+                        mission: 'badak',
                         missionStatus: 'active',
-                        missionObjective: 'Tangkap Orang Utan di hutan barat'
+                        missionObjective: 'Temukan Badak Jawa di hutan Ujung Kulon'
                     })
                 } catch (e) {
                     console.error('Error saving mission to Firestore:', e)
@@ -360,10 +330,10 @@ export default function DongengOrangutanPage() {
 
             {/* Corner Decorations */}
             <div className="absolute top-24 left-4 hidden xl:block z-20">
-                <div className="text-4xl opacity-20">🌿</div>
+                <div className="text-4xl opacity-20">🦏</div>
             </div>
             <div className="absolute bottom-36 right-4 hidden xl:block z-20">
-                <div className="text-4xl opacity-20">🦧</div>
+                <div className="text-4xl opacity-20">🌿</div>
             </div>
 
             <style jsx global>{`
