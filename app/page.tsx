@@ -40,7 +40,7 @@ export default function Home() {
 
   const { hasNewNotif } = useNotifStore();
   const { startTransition, finishTransition } = useTransitionStore()
-  const { clearMission, currentMission, missionStatus, setMission } = useMissionStore();
+  const { clearMission } = useMissionStore();
 
   const nearbyCreature = useBattleStore(s => s.nearbyCreature)
   const startBattle = useBattleStore(s => s.startBattle)
@@ -233,27 +233,28 @@ export default function Home() {
         </div>
       )}
 
-      {/* Mission UI Overlay - Only show when playing and has active mission */}
-      {menuState === 'playing' && currentMission && missionStatus === 'active' && (
-        <MissionHUD />
-      )}
-      
-      {/* Mission Complete Modal */}
-      {menuState === 'playing' && missionStatus === 'completed' && (
-        <MissionCompleteOverlay onClose={() => {
-          clearMission();
-          // Clear from Firestore too
-          const user = auth.currentUser;
-          if (user) {
-            import('firebase/firestore').then(({ updateDoc, doc }) => {
-              updateDoc(doc(db, 'players', user.uid), {
-                mission: null,
-                missionStatus: null,
-                missionObjective: null
-              }).catch(console.error);
-            });
-          }
-        }} />
+      {/* Mission UI Overlay - Always mount when playing so it can self-load from localStorage */}
+      {menuState === 'playing' && (
+        <>
+          <MissionHUD />
+          <MissionCompleteOverlay onClose={() => {
+            clearMission();
+            localStorage.removeItem('current_mission');
+            localStorage.removeItem('mission_status');
+            localStorage.removeItem('mission_objective');
+            // Clear from Firestore too
+            const user = auth.currentUser;
+            if (user) {
+              import('firebase/firestore').then(({ updateDoc, doc }) => {
+                updateDoc(doc(db, 'players', user.uid), {
+                  mission: null,
+                  missionStatus: null,
+                  missionObjective: null
+                }).catch(console.error);
+              });
+            }
+          }} />
+        </>
       )}
 
       {/* Right HUD (ID Card & Nusadex) */}

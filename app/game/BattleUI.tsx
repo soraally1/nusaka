@@ -3,7 +3,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useBattleStore } from './battleStore';
 import { useCreatureStore } from '../nusadex/store';
-import { useJoystickStore } from './store';
+import { useJoystickStore, useMissionStore } from './store';
+import { completeTask } from './MissionHUD';
 import dynamic from 'next/dynamic';
 
 const BattleArena = dynamic(() => import('./BattleArena'), { ssr: false });
@@ -58,6 +59,13 @@ export default function BattleUI() {
         return 'bg-[#EF4444]'; // Red
     };
 
+    // Mark mission tasks as 'find_orangutan' when encountering Orang Utan
+    useEffect(() => {
+        if (isActive && wildCreature?.id === 3) {
+            completeTask('orangutan', 'find_orangutan');
+        }
+    }, [isActive, wildCreature]);
+
     const handleRun = () => {
         setMenuOpen(false);
         setPhase('flee', 'Got away safely!');
@@ -70,6 +78,10 @@ export default function BattleUI() {
     const handleAttack = () => {
         setMenuOpen(false);
         setPhase('player_attack', `${playerCreature.nickname || playerCreature.name} used Tackle!`);
+
+        if (wildCreature.id === 3) {
+            completeTask('orangutan', 'battle_orangutan');
+        }
 
         // Simple attack animation delay
         setTimeout(() => {
@@ -125,9 +137,18 @@ export default function BattleUI() {
             if (roll < chance + 0.2) {
                 setPhase('catch_success', `Gotcha! ${wildCreature.name} was caught!`);
                 useCreatureStore.getState().addCreature({ ...wildCreature, level: 1, exp: 0 });
+                
+                if (wildCreature.id === 3) {
+                    completeTask('orangutan', 'catch_orangutan');
+                }
+
                 setTimeout(() => {
                     endBattle();
                     setMenuState('playing');
+                    
+                    if (wildCreature.id === 3 && useMissionStore.getState().currentMission === 'orangutan') {
+                        useMissionStore.getState().completeMission();
+                    }
                 }, 2500);
             } else {
                 setPhase('enemy_attack', `Oh no! The wild ${wildCreature.name} broke free!`);

@@ -2,21 +2,53 @@
 
 import { useEffect, useState } from 'react'
 import { useMissionStore } from './store'
-import { Target, CheckCircle2, MapPin, Navigation } from 'lucide-react'
+import { CheckCircle2, MapPin, ChevronDown, ChevronUp, Scroll } from 'lucide-react'
 import { auth } from '../../lib/firebase'
 import { doc, getDoc, updateDoc } from 'firebase/firestore'
 import { db } from '../../lib/firebase'
 
+// Mission tasks definition per mission type
+const MISSION_TASKS: Record<string, { id: string; label: string }[]> = {
+  orangutan: [
+    { id: 'find_orangutan', label: 'Temukan Orang Utan di hutan barat' },
+    { id: 'battle_orangutan', label: 'Hadapi Orang Utan dalam pertarungan' },
+    { id: 'catch_orangutan', label: 'Tangkap dan lindungi Orang Utan' },
+  ],
+}
+
+// Track completed tasks via localStorage
+function getCompletedTasks(mission: string): Set<string> {
+  try {
+    const raw = localStorage.getItem(`mission_tasks_${mission}`)
+    return raw ? new Set(JSON.parse(raw)) : new Set()
+  } catch {
+    return new Set()
+  }
+}
+
+// Exported helper — call this from anywhere to mark a task complete
+export function completeTask(mission: string, taskId: string) {
+  try {
+    const done = getCompletedTasks(mission)
+    done.add(taskId)
+    localStorage.setItem(`mission_tasks_${mission}`, JSON.stringify([...done]))
+    // Notify the HUD to re-read localStorage
+    window.dispatchEvent(new CustomEvent('mission_task_update', { detail: { mission, taskId } }))
+  } catch { /* silent */ }
+}
+
 export function MissionHUD() {
-  const { currentMission, missionStatus, missionObjective, setMission, completeMission } = useMissionStore()
+  const { currentMission, missionStatus, setMission, completeMission } = useMissionStore()
   const [isVisible, setIsVisible] = useState(false)
-  const [showNavHint, setShowNavHint] = useState(true)
+  const [isCollapsed, setIsCollapsed] = useState(false)
+  const [completedTasks, setCompletedTasks] = useState<Set<string>>(new Set())
+  const [animateIn, setAnimateIn] = useState(false)
 
   // Load mission from Firestore on mount (priority) then fallback to localStorage
   useEffect(() => {
     const loadMission = async () => {
       const user = auth.currentUser
-      
+
       // Try Firestore first if user is logged in
       if (user) {
         try {
@@ -29,32 +61,30 @@ export function MissionHUD() {
               if (data.missionStatus === 'completed') {
                 completeMission()
               }
-              return // Firestore has mission, use it
+              return
             }
           }
         } catch (error) {
           console.error('Error loading mission from Firestore:', error)
         }
       }
-      
-      // Always check localStorage as fallback or primary source
+
       const storedMission = localStorage.getItem('current_mission')
       const storedStatus = localStorage.getItem('mission_status') as 'inactive' | 'active' | 'completed'
       const storedObjective = localStorage.getItem('mission_objective')
-      
+
       if (storedMission && storedStatus && storedObjective) {
         setMission(storedMission, storedObjective)
         if (storedStatus === 'completed') {
           completeMission()
         }
-        
-        // Sync to Firestore if user is logged in and we loaded from localStorage
+
         if (user) {
           try {
             await updateDoc(doc(db, 'players', user.uid), {
               mission: storedMission,
               missionStatus: storedStatus,
-              missionObjective: storedObjective
+              missionObjective: storedObjective,
             })
           } catch (e) {
             console.error('Error syncing mission to Firestore:', e)
@@ -62,94 +92,184 @@ export function MissionHUD() {
         }
       }
     }
-    
+
     loadMission()
   }, [setMission, completeMission])
 
   // Show HUD when there's an active mission
   useEffect(() => {
-    setIsVisible(currentMission !== null && missionStatus === 'active')
+    const visible = currentMission !== null && missionStatus === 'active'
+    setIsVisible(visible)
+    if (visible) {
+      setTimeout(() => setAnimateIn(true), 50)
+    } else {
+      setAnimateIn(false)
+    }
   }, [currentMission, missionStatus])
 
-  // Hide navigation hint after 5 seconds
+  // Load completed tasks when mission changes + listen for task updates
   useEffect(() => {
-    if (showNavHint) {
-      const timer = setTimeout(() => {
-        setShowNavHint(false)
-      }, 5000)
-      return () => clearTimeout(timer)
+    if (currentMission) {
+      setCompletedTasks(getCompletedTasks(currentMission))
     }
-  }, [showNavHint])
+    const handler = () => {
+      if (currentMission) setCompletedTasks(getCompletedTasks(currentMission))
+    }
+    window.addEventListener('mission_task_update', handler)
+    return () => window.removeEventListener('mission_task_update', handler)
+  }, [currentMission])
 
-  if (!isVisible) return null
+  if (!isVisible || !currentMission) return null
+
+  const tasks = MISSION_TASKS[currentMission] || []
+  const completedCount = tasks.filter(t => completedTasks.has(t.id)).length
+  const progressPct = tasks.length > 0 ? (completedCount / tasks.length) * 100 : 0
+
+  const missionNames: Record<string, string> = {
+    orangutan: 'Penjaga Rimba',
+  }
+  const missionName = missionNames[currentMission] || 'Misi Aktif'
 
   return (
     <>
-      {/* Mission Checklist - Top Left */}
-      <div className="absolute top-4 left-4 z-50">
-        <div className="bg-[#FEFAE0]/95 backdrop-blur-md border-4 border-[#283618] rounded-2xl p-4 shadow-[4px_4px_0_#283618]">
-          {/* Header */}
-          <div className="flex items-center gap-2 mb-3">
-            <div className="w-10 h-10 bg-[#BC6C25] rounded-xl flex items-center justify-center border-3 border-[#283618]" style={{ borderWidth: '3px' }}>
-              <Target size={20} className="text-white" />
+      {/* Quest Tracker Panel - Top Left */}
+      <div
+        className="absolute left-4 sm:left-6 z-50 select-none"
+        style={{
+          top: '160px', // Lowered slightly so it stays clear of the minimap
+          width: '260px',
+          transform: animateIn ? 'translateX(0)' : 'translateX(-280px)',
+          transition: 'transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1)',
+        }}
+      >
+        {/* Panel */}
+        <div
+          className="rounded-2xl overflow-hidden"
+          style={{
+            background: 'rgba(254, 250, 224, 0.95)',
+            backdropFilter: 'blur(12px)',
+            border: '3px solid #283618',
+            boxShadow: '4px 4px 0 #283618',
+          }}
+        >
+          {/* Header - clickable to collapse */}
+          <button
+            onClick={() => setIsCollapsed(c => !c)}
+            className="w-full flex items-center gap-2 px-3 py-2.5 cursor-pointer group"
+            style={{ background: '#606C38' }}
+          >
+            <div
+              className="flex items-center justify-center rounded-lg flex-shrink-0"
+              style={{ width: 28, height: 28, background: '#BC6C25', border: '2px solid #283618' }}
+            >
+              <Scroll size={14} className="text-white" />
             </div>
-            <div>
-              <p className="text-xs font-bold text-[#606C38] uppercase tracking-wider">Misi Aktif</p>
-              <p className="text-sm font-bold text-[#283618]">Penjaga Rimba</p>
+            <div className="flex-1 text-left">
+              <p className="text-[10px] font-bold text-[#FEFAE0]/70 uppercase tracking-wider leading-none">Misi Aktif</p>
+              <p className="text-sm font-bold text-[#FEFAE0] leading-tight">{missionName}</p>
             </div>
-          </div>
+            {isCollapsed
+              ? <ChevronDown size={16} className="text-[#FEFAE0]/70 group-hover:text-[#FEFAE0] transition-colors flex-shrink-0" />
+              : <ChevronUp size={16} className="text-[#FEFAE0]/70 group-hover:text-[#FEFAE0] transition-colors flex-shrink-0" />
+            }
+          </button>
 
-          {/* Objective */}
-          <div className="bg-[#BC6C25]/10 rounded-xl p-3 border-2 border-[#283618]/20">
-            <div className="flex items-start gap-2">
-              <MapPin size={16} className="text-[#BC6C25] mt-0.5 flex-shrink-0" />
-              <p className="text-sm text-[#5C4033] font-medium leading-snug">
-                {missionObjective}
-              </p>
+          {/* Collapsible body */}
+          <div
+            style={{
+              maxHeight: isCollapsed ? 0 : '300px',
+              overflow: 'hidden',
+              transition: 'max-height 0.35s ease',
+            }}
+          >
+            {/* Progress bar */}
+            <div className="px-3 pt-3 pb-1">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-[10px] font-bold text-[#606C38] uppercase tracking-wider">Progres</span>
+                <span className="text-[10px] font-bold text-[#BC6C25]">{completedCount}/{tasks.length}</span>
+              </div>
+              <div className="h-2 rounded-full overflow-hidden" style={{ background: 'rgba(40,54,24,0.15)' }}>
+                <div
+                  className="h-full rounded-full transition-all duration-700"
+                  style={{
+                    width: `${progressPct}%`,
+                    background: progressPct === 100
+                      ? 'linear-gradient(90deg, #10B981, #34D399)'
+                      : 'linear-gradient(90deg, #BC6C25, #DDA15E)',
+                  }}
+                />
+              </div>
             </div>
-          </div>
 
-          {/* Progress Indicator */}
-          <div className="mt-3 flex items-center gap-2">
-            <div className="flex-1 h-2 bg-[#283618]/20 rounded-full overflow-hidden">
-              <div className="h-full bg-[#BC6C25] rounded-full animate-pulse" style={{ width: '30%' }} />
+            {/* Divider */}
+            <div className="mx-3 my-2" style={{ height: 1, background: 'rgba(40,54,24,0.12)' }} />
+
+            {/* Task list */}
+            <div className="px-3 pb-3 space-y-2">
+              {tasks.map((task, idx) => {
+                const done = completedTasks.has(task.id)
+                return (
+                  <div
+                    key={task.id}
+                    className="flex items-start gap-2 group"
+                    style={{
+                      opacity: done ? 0.55 : 1,
+                      transition: 'opacity 0.3s ease',
+                    }}
+                  >
+                    {/* Step number or check */}
+                    <div className="flex-shrink-0 mt-0.5">
+                      {done ? (
+                        <CheckCircle2
+                          size={18}
+                          style={{ color: '#10B981' }}
+                        />
+                      ) : (
+                        <div
+                          className="flex items-center justify-center rounded-full"
+                          style={{
+                            width: 18,
+                            height: 18,
+                            border: '2px solid #BC6C25',
+                            background: 'transparent',
+                          }}
+                        >
+                          <span style={{ fontSize: 9, fontWeight: 900, color: '#BC6C25', lineHeight: 1 }}>
+                            {idx + 1}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Task label */}
+                    <p
+                      className="text-xs leading-snug"
+                      style={{
+                        color: done ? '#606C38' : '#283618',
+                        textDecoration: done ? 'line-through' : 'none',
+                        fontWeight: done ? 400 : 600,
+                      }}
+                    >
+                      {task.label}
+                    </p>
+                  </div>
+                )
+              })}
+
+              {tasks.length === 0 && (
+                <div className="flex items-center gap-2">
+                  <MapPin size={14} className="text-[#BC6C25] flex-shrink-0" />
+                  <p className="text-xs text-[#5C4033] font-medium leading-snug">
+                    Jelajahi dunia Nusaka!
+                  </p>
+                </div>
+              )}
             </div>
-            <span className="text-xs font-bold text-[#606C38]">Dalam Perjalanan</span>
           </div>
         </div>
       </div>
 
-      {/* Navigation Hint - Shows briefly */}
-      {showNavHint && (
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-40 pointer-events-none">
-          <div className="bg-black/60 backdrop-blur-md rounded-2xl px-6 py-4 text-center animate-fade-in">
-            <Navigation size={32} className="text-[#FEFAE0] mx-auto mb-2 animate-bounce" />
-            <p className="text-[#FEFAE0] font-bold text-lg">Arahkan ke Hutan Barat</p>
-            <p className="text-[#FEFAE0]/70 text-sm">Ikuti kompas untuk menemukan Orang Utan</p>
-          </div>
-        </div>
-      )}
-
-      {/* Distance Indicator - Bottom Left */}
-      <div className="absolute bottom-4 left-4 z-50">
-        <div className="bg-black/60 backdrop-blur-md rounded-xl px-4 py-2 border-2 border-white/20">
-          <div className="flex items-center gap-2">
-            <Navigation size={16} className="text-[#10B981]" />
-            <span className="text-white font-bold">~450m</span>
-            <span className="text-white/60 text-sm">ke target</span>
-          </div>
-        </div>
-      </div>
-
-      <style jsx global>{`
-        @keyframes fade-in {
-          from { opacity: 0; transform: translate(-50%, -40%); }
-          to { opacity: 1; transform: translate(-50%, -50%); }
-        }
-        .animate-fade-in {
-          animation: fade-in 0.5s ease-out;
-        }
-      `}</style>
+      {/* Mission Complete Overlay is separate */}
     </>
   )
 }
@@ -157,7 +277,7 @@ export function MissionHUD() {
 // Mission Complete Overlay
 export function MissionCompleteOverlay({ onClose }: { onClose: () => void }) {
   const { missionStatus } = useMissionStore()
-  
+
   if (missionStatus !== 'completed') return null
 
   return (

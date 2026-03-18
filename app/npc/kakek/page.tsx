@@ -2,7 +2,7 @@
 
 import { useRef, Suspense, useEffect, useState, useMemo } from 'react'
 import { Canvas, useThree, useFrame } from '@react-three/fiber'
-import { useGLTF, useAnimations, useTexture, Environment } from '@react-three/drei'
+import { useGLTF, useAnimations, useTexture } from '@react-three/drei'
 import * as THREE from 'three'
 import { useRouter } from 'next/navigation'
 import { useJoystickStore } from '../../game/store'
@@ -167,13 +167,23 @@ function SceneContent({
 export default function NPCKakekPage() {
     const router = useRouter()
     const playerName = useJoystickStore(s => s.playerName)
-    const { startTransition, finishTransition } = useTransitionStore()
+    const { startTransition } = useTransitionStore()
     const [dialogStep, setDialogStep] = useState(0)
     const [displayText, setDisplayText] = useState('')
     const [isTyping, setIsTyping] = useState(false)
     const [dialogMode, setDialogMode] = useState<'intro' | 'mission'>('intro')
     const [showMissionOptions, setShowMissionOptions] = useState(false)
-    const [storyWatched, setStoryWatched] = useState(false)
+    const [isMobile, setIsMobile] = useState(false)
+
+    // Check mobile on mount
+    useEffect(() => {
+        const checkMobile = () => {
+            setIsMobile(window.innerWidth < 768)
+        }
+        checkMobile()
+        window.addEventListener('resize', checkMobile)
+        return () => window.removeEventListener('resize', checkMobile)
+    }, [])
 
     // Check if intro was completed on mount
     useEffect(() => {
@@ -181,29 +191,27 @@ export default function NPCKakekPage() {
         if (introComplete === 'true') {
             setDialogMode('mission')
         }
-        const storyStatus = localStorage.getItem('orangutan_story_watched')
-        if (storyStatus === 'true') {
-            setStoryWatched(true)
-        }
     }, [])
 
-    const introDialogs = [
+    const introDialogs = useMemo(() => [
         `Hai ${playerName || 'Petualang'}!`,
         "Wah, kamu sudah sampai di sini rupanya. Selamat datang di dunia Nusaka!",
         "Dunia ini luas dan penuh dengan keajaiban. Ada banyak hewan-hewan unik yang bisa kamu temukan.",
         "Gunakan Nusadex untuk mencatat setiap pertemuanmu. Itu akan membantumu belajar lebih banyak tentang mereka.",
         "Semoga perjalananmu menyenangkan dan penuh berkah. Sampai jumpa lagi!"
-    ]
+    ], [playerName])
 
-    const missionDialogs = [
+    const missionDialogs = useMemo(() => [
         `Ah, ${playerName || 'Petualang'}! Kamu datang lagi.`,
         "Aku punya sesuatu yang penting untukmu. Ada seekor Orang Utan yang tersesat di hutan sebelah barat.",
         "Dia adalah penjaga rimba yang mulia, tetapi kini terancam oleh pemburu liar.",
         "Maukah kamu membantu menangkap dan melindungi Orang Utan tersebut?",
         "Tapi sebelum itu, dengarkanlah dongeng tentang asal-usul Sang Penjaga Rimba ini..."
-    ]
+    ], [playerName])
 
-    const dialogs = dialogMode === 'intro' ? introDialogs : missionDialogs
+    const dialogs = useMemo(() => 
+        dialogMode === 'intro' ? introDialogs : missionDialogs
+    , [dialogMode, introDialogs, missionDialogs])
 
     // Typewriter Effect
     useEffect(() => {
@@ -221,7 +229,7 @@ export default function NPCKakekPage() {
                 currentText += text[index]
                 setDisplayText(currentText)
                 index++
-                setTimeout(type, 35) // Speed of typing
+                setTimeout(type, 35)
             } else {
                 setIsTyping(false)
             }
@@ -229,34 +237,27 @@ export default function NPCKakekPage() {
 
         type()
         return () => { isCancelled = true }
-    }, [dialogStep])
+    }, [dialogStep, dialogs])
 
     const handleNext = () => {
         if (isTyping) {
-            // Skip typing
             setDisplayText(dialogs[dialogStep])
             setIsTyping(false)
         } else if (dialogStep < dialogs.length - 1) {
             setDialogStep(prev => prev + 1)
         } else {
-            // Last dialog step
             if (dialogMode === 'intro') {
-                // Mark intro as complete
                 localStorage.setItem('kakek_intro_complete', 'true')
-                // Switch to mission mode and show options
                 setDialogMode('mission')
                 setDialogStep(0)
                 setShowMissionOptions(true)
             } else {
-                // In mission mode, show options instead of closing
                 setShowMissionOptions(true)
             }
         }
     }
-  }, [displayText]);
 
     const handleStartStory = async () => {
-        // Auto-accept mission when starting story
         localStorage.setItem('orangutan_story_watched', 'true')
         localStorage.setItem('current_mission', 'orangutan')
         localStorage.setItem('mission_status', 'active')
@@ -268,7 +269,6 @@ export default function NPCKakekPage() {
     }
 
     const handleAcceptMissionDirect = () => {
-        // Skip story, accept mission directly
         localStorage.setItem('orangutan_story_watched', 'true')
         localStorage.setItem('current_mission', 'orangutan')
         localStorage.setItem('mission_status', 'active')
@@ -285,117 +285,84 @@ export default function NPCKakekPage() {
             router.push('/')
         })
     }
-  };
 
-  const handleClose = () => {
-    startTransition(() => {
-      router.push("/");
-    });
-  };
-
-  return (
-    <div className="relative w-screen h-screen overflow-hidden bg-[#87CEEB]">
-      {/* 3D Canvas - limited to upper portion so characters always stay visible above dialog */}
-      <div
-        className="absolute inset-0 z-0"
-        style={{ bottom: "clamp(160px, 30vh, 260px)" }}
-      >
-        {/* Desktop and mobile use different FOV via canvas */}
-        <Canvas shadows camera={{ position: [0, 4, 32], fov: 30 }}>
-          <SceneContent isTyping={isTyping} isMobile={isMobile} />
-        </Canvas>
-      </div>
-
-      {/* Home Button */}
-      <button
-        onClick={handleClose}
-        className="absolute top-4 sm:top-8 left-4 sm:left-8 z-50 p-2.5 sm:p-4 bg-[#87CEEB]/80 hover:bg-[#87CEEB] backdrop-blur-md rounded-full text-[#283618] transition-all duration-300 shadow-[1px_3px_6px_rgba(40,54,24,0.3)] active:shadow-none cursor-pointer group"
-      >
-        <Home
-          size={22}
-          className="sm:hidden group-hover:scale-110 transition-transform"
-        />
-        <Home
-          size={28}
-          className="hidden sm:block group-hover:scale-110 transition-transform"
-        />
-      </button>
-
-      {/* Dialogue UI — fixed at bottom, limited height */}
-      <div className="absolute bottom-0 left-0 right-0 z-40 animate-fade-in-bottom pointer-events-none">
-        <div className="relative w-full flex flex-col justify-end">
-          {/* Character Name Tag */}
-          <div className="relative ml-4 sm:ml-12">
+    return (
+        <div className="relative w-screen h-screen overflow-hidden bg-[#87CEEB]">
+            {/* 3D Canvas */}
             <div
-              style={{ fontFamily: "var(--font-nanum-pen)" }}
-              className="absolute bottom-full translate-y-1 left-0 px-4 sm:px-8 py-2 sm:py-3 bg-[#606C38] border-4 border-[#283618] rounded-t-3xl text-xl sm:text-3xl font-black text-[#FEFAE0] whitespace-nowrap"
+                className="absolute inset-0 z-0"
+                style={{ bottom: "clamp(160px, 30vh, 260px)" }}
             >
-                <Home size={28} />
+                <Canvas shadows camera={{ position: [0, 4, 32], fov: 30 }}>
+                    <SceneContent isTyping={isTyping} isMobile={isMobile} />
+                </Canvas>
+            </div>
+
+            {/* Home Button */}
+            <button
+                onClick={handleClose}
+                className="absolute top-4 sm:top-8 left-4 sm:left-8 z-50 p-2.5 sm:p-4 bg-[#87CEEB]/80 hover:bg-[#87CEEB] backdrop-blur-md rounded-full text-[#283618] transition-all duration-300 shadow-[1px_3px_6px_rgba(40,54,24,0.3)] active:shadow-none cursor-pointer group"
+            >
+                <Home size={22} className="sm:hidden group-hover:scale-110 transition-transform" />
+                <Home size={28} className="hidden sm:block group-hover:scale-110 transition-transform" />
             </button>
 
-            {/* Dialogue UI - Full Screen Bottom Style */}
+            {/* Dialogue UI */}
             <div className="absolute bottom-0 left-0 right-0 z-40 animate-fade-in-bottom pointer-events-none">
                 <div className="relative w-full flex flex-col justify-end">
                     {/* Character Name Tag */}
-                    <div className="relative ml-12">
+                    <div className="relative ml-4 sm:ml-12">
                         <div
-                            style={{ fontFamily: 'var(--font-nanum-pen)' }}
-                            className="absolute bottom-full translate-y-1 left-0 px-8 py-3 bg-[#606C38] border-4 border-[#283618] rounded-t-3xl text-3xl font-black text-[#FEFAE0]"
+                            style={{ fontFamily: "var(--font-nanum-pen)" }}
+                            className="absolute bottom-full translate-y-1 left-0 px-4 sm:px-8 py-2 sm:py-3 bg-[#606C38] border-4 border-[#283618] rounded-t-3xl text-xl sm:text-3xl font-black text-[#FEFAE0] whitespace-nowrap"
                         >
                             Kakek Nusaka
                         </div>
                     </div>
 
-                    {/* Full Width Dialogue Box - Cream/Paper Theme - Reduced height to avoid covering characters */}
-                    <div className="bg-[#FEFAE0] border-t-4 border-[#283618] p-8 md:p-10 md:px-20 relative overflow-hidden pointer-events-auto w-full min-h-[200px] shadow-[0_-10px_40px_rgba(0,0,0,0.1)]">
-                        {/* Paper Texture Overlay */}
-                        <div className="absolute inset-0 opacity-20 pointer-events-none mix-blend-multiply" style={{ backgroundImage: 'url("https://www.transparenttextures.com/patterns/paper-fibers.png")' }} />
+                    {/* Dialog Box */}
+                    <div
+                        className="bg-[#FEFAE0] border-t-4 border-[#283618] px-5 sm:px-10 md:px-20 pt-5 sm:pt-6 pb-4 sm:pb-5 relative pointer-events-auto w-full shadow-[0_-10px_40px_rgba(0,0,0,0.1)]"
+                        style={{ height: "clamp(160px, 30vh, 260px)" }}
+                    >
+                        {/* Paper texture */}
+                        <div
+                            className="absolute inset-0 opacity-20 pointer-events-none mix-blend-multiply"
+                            style={{
+                                backgroundImage: 'url("https://www.transparenttextures.com/patterns/paper-fibers.png")',
+                            }}
+                        />
 
                         <div className="relative z-10 flex flex-col justify-between h-full">
                             <p
-                                style={{ fontFamily: 'var(--font-nanum-pen)' }}
-                                className="text-[#283618] text-5xl md:text-7xl leading-tight"
+                                style={{ fontFamily: "var(--font-nanum-pen)" }}
+                                className="text-[#283618] text-2xl sm:text-3xl md:text-5xl leading-tight"
                             >
                                 {displayText}
-                                {isTyping && <span className="animate-pulse ml-2 inline-block w-4 h-12 bg-[#283618] vertical-middle" />}
+                                {isTyping && <span className="animate-pulse ml-2 inline-block w-0.5 h-6 sm:h-8 bg-[#283618]" />}
                             </p>
 
-                            <div className="flex justify-end mt-10">
+                            <div className="flex justify-end mt-4">
                                 <button
                                     onClick={handleNext}
-                                    className="group flex items-center gap-6 bg-[#DDA15E] hover:bg-[#BC6C25] border-4 border-[#283618] px-12 py-5 rounded-2xl shadow-[8px_8px_0_#283618] active:translate-y-2 active:shadow-none transition-all cursor-pointer"
+                                    className="group flex items-center gap-3 sm:gap-6 bg-[#DDA15E] hover:bg-[#BC6C25] border-4 border-[#283618] px-6 sm:px-12 py-3 sm:py-5 rounded-2xl shadow-[4px_4px_0_#283618] sm:shadow-[8px_8px_0_#283618] active:translate-y-2 active:shadow-none transition-all cursor-pointer"
                                 >
-                                    <span style={{ fontFamily: 'var(--font-nanum-pen)' }} className="text-4xl md:text-5xl font-black text-[#FEFAE0]">
+                                    <span style={{ fontFamily: "var(--font-nanum-pen)" }} className="text-2xl sm:text-4xl md:text-5xl font-black text-[#FEFAE0]">
                                         {dialogStep === dialogs.length - 1 && dialogMode === 'intro' ? "Misi Baru!" : 
                                          dialogStep === dialogs.length - 1 && dialogMode === 'mission' && !showMissionOptions ? "Lanjutkan" : 
                                          (isTyping ? "Skip" : "Lanjut")}
                                     </span>
-                                    <ChevronRight className="w-10 h-10 md:w-12 md:h-12 text-[#FEFAE0] group-hover:translate-x-2 transition-transform" />
+                                    <ChevronRight className="w-6 h-6 sm:w-10 sm:h-10 md:w-12 md:h-12 text-[#FEFAE0] group-hover:translate-x-2 transition-transform" />
                                 </button>
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
-          </div>
 
-          {/* Dialog Box — fixed height, scrollable text */}
-          <div
-            className="bg-[#FEFAE0] border-t-4 border-[#283618] px-5 sm:px-10 md:px-20 pt-5 sm:pt-6 pb-4 sm:pb-5 relative pointer-events-auto w-full shadow-[0_-10px_40px_rgba(0,0,0,0.1)]"
-            style={{ height: "clamp(160px, 30vh, 260px)" }}
-          >
-            {/* Paper texture */}
-            <div
-              className="absolute inset-0 opacity-20 pointer-events-none mix-blend-multiply"
-              style={{
-                backgroundImage:
-                  'url("https://www.transparenttextures.com/patterns/paper-fibers.png")',
-              }}
-            />
-
-            {/* Mission Options Overlay - New Design */}
+            {/* Mission Options Overlay */}
             {showMissionOptions && (
-                <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-md">
+                <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-md pointer-events-auto">
                     <div className="relative bg-[#FEFAE0] border-4 border-[#283618] rounded-3xl p-6 md:p-8 max-w-md w-full mx-4 shadow-[8px_8px_0_#283618]">
                         {/* Close Button */}
                         <button
@@ -492,28 +459,7 @@ export default function NPCKakekPage() {
                 .animate-fade-in-bottom {
                     animation: fade-in-bottom 0.8s ease-out forwards;
                 }
-                .vertical-middle {
-                    vertical-align: middle;
-                }
             `}</style>
         </div>
-      </div>
-
-      <style jsx global>{`
-        @keyframes fade-in-bottom {
-          from {
-            transform: translateY(100px);
-            opacity: 0;
-          }
-          to {
-            transform: translateY(0);
-            opacity: 1;
-          }
-        }
-        .animate-fade-in-bottom {
-          animation: fade-in-bottom 0.8s ease-out forwards;
-        }
-      `}</style>
-    </div>
-  );
+    )
 }
