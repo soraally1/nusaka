@@ -247,12 +247,26 @@ export default function Player({ positionRef }: { positionRef?: React.MutableRef
     const movementRef = useRef({ forward: 0, right: 0 });
     const isMovingRef = useRef(false);
 
-    const menuState = useJoystickStore(s => s.menuState)
-
     const internalPosition = useRef(new THREE.Vector3(0, PLANET_RADIUS, 0))
     const playerPosition = positionRef || internalPosition
     const cameraForward = useRef(new THREE.Vector3(0, 0, -1))
     const targetRotation = useRef(new THREE.Quaternion())
+
+    const menuState = useJoystickStore(s => s.menuState)
+    const setLastPosition = useJoystickStore(s => s.setLastPosition)
+
+    // Save position to store on unmount
+    useEffect(() => {
+        return () => {
+            if (playerPosition.current) {
+                setLastPosition({
+                    x: playerPosition.current.x,
+                    y: playerPosition.current.y,
+                    z: playerPosition.current.z
+                });
+            }
+        };
+    }, [setLastPosition, playerPosition]);
 
     // Animation state (still uses ref to avoid triggering renders)
     const currentAction = useRef<string | null>(null)

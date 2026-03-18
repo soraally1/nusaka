@@ -12,126 +12,156 @@ import { SkeletonUtils } from 'three-stdlib'
 
 // Simple direct components for common world elements to bypass Planet LOD for the character page
 function SkyBox() {
-    const texture = useTexture('/sky.png')
-    texture.colorSpace = THREE.SRGBColorSpace;
-    texture.wrapS = THREE.RepeatWrapping;
-    texture.wrapT = THREE.RepeatWrapping;
-    texture.repeat.set(6, 3);
+  const texture = useTexture("/sky.png");
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.wrapS = THREE.RepeatWrapping;
+  texture.wrapT = THREE.RepeatWrapping;
+  texture.repeat.set(6, 3);
 
-    return (
-        <mesh scale={2000}>
-            <sphereGeometry args={[1, 64, 64]} />
-            <meshBasicMaterial map={texture} side={THREE.BackSide} toneMapped={false} />
-        </mesh>
-    )
+  return (
+    <mesh scale={2000}>
+      <sphereGeometry args={[1, 64, 64]} />
+      <meshBasicMaterial
+        map={texture}
+        side={THREE.BackSide}
+        toneMapped={false}
+      />
+    </mesh>
+  );
 }
 
 function SimplePlanet() {
-    return (
-        <mesh position={[0, -150, 0]} receiveShadow>
-            <sphereGeometry args={[150, 64, 64]} />
-            <meshToonMaterial color="#8BC34A" />
-        </mesh>
-    )
+  return (
+    <mesh position={[0, -150, 0]} receiveShadow>
+      <sphereGeometry args={[150, 64, 64]} />
+      <meshToonMaterial color="#8BC34A" />
+    </mesh>
+  );
 }
 
-function PosModel() {
-    const { scene } = useGLTF('/model/Pos.glb')
-    
-    const clone = useMemo(() => {
-        const clonedScene = SkeletonUtils.clone(scene)
-        clonedScene.traverse((child: any) => {
-            if (child.isMesh) {
-                const oldMat = child.material as THREE.MeshStandardMaterial;
-                child.material = new THREE.MeshToonMaterial({
-                    map: oldMat?.map,
-                    color: oldMat?.color || '#ffffff',
-                    transparent: oldMat?.transparent,
-                    opacity: oldMat?.opacity,
-                    alphaTest: 0.5,
-                    side: THREE.DoubleSide
-                });
-                child.castShadow = true;
-                child.receiveShadow = true;
-            }
+function PosModel({ isMobile }: { isMobile: boolean }) {
+  const { scene } = useGLTF("/model/Pos.glb");
+
+  const clone = useMemo(() => {
+    const clonedScene = SkeletonUtils.clone(scene);
+    clonedScene.traverse((child: any) => {
+      if (child.isMesh) {
+        const oldMat = child.material as THREE.MeshStandardMaterial;
+        child.material = new THREE.MeshToonMaterial({
+          map: oldMat?.map,
+          color: oldMat?.color || "#ffffff",
+          transparent: oldMat?.transparent,
+          opacity: oldMat?.opacity,
+          alphaTest: 0.5,
+          side: THREE.DoubleSide,
         });
-        return clonedScene
-    }, [scene])
+        child.castShadow = true;
+        child.receiveShadow = true;
+      }
+    });
+    return clonedScene;
+  }, [scene]);
 
-    // Use a group for scaling to avoid mutating the cloned scene root scale directly (safer)
-    return (
-        <group position={[-6, 0.5, 5]} rotation={[0, Math.PI / 4, 0]} scale={3.5}>
-            <primitive object={clone} />
-        </group>
-    )
+  // Desktop: left side, bigger. Mobile: closer to center, smaller
+  const mobilePos = [-2.5, 1, 17] as [number, number, number];
+  const desktopPos = [-5.5, -0.2, 17] as [number, number, number];
+  const pos = isMobile ? mobilePos : desktopPos;
+  const scale = isMobile ? 2.5 : 3.8;
+
+  return (
+    <group position={pos} rotation={[0, Math.PI / 4, 0]} scale={scale}>
+      <primitive object={clone} />
+    </group>
+  );
 }
 
-function DialogNPC({ isTyping }: { isTyping: boolean }) {
-    const { scene, animations } = useGLTF('/model/Kakek.glb') as any
-    const clone = useMemo(() => {
-        const clonedScene = SkeletonUtils.clone(scene)
-        clonedScene.traverse((child: any) => {
-            if (child.isMesh) {
-                const oldMat = child.material as THREE.MeshStandardMaterial;
-                child.material = new THREE.MeshToonMaterial({
-                    map: oldMat?.map,
-                    color: oldMat?.color || '#ffffff',
-                    transparent: oldMat?.transparent,
-                    opacity: oldMat?.opacity,
-                    alphaTest: 0.5,
-                    side: THREE.DoubleSide
-                });
-                child.castShadow = true;
-                child.receiveShadow = true;
-            }
+function DialogNPC({
+  isTyping,
+  isMobile,
+}: {
+  isTyping: boolean;
+  isMobile: boolean;
+}) {
+  const { scene, animations } = useGLTF("/model/Kakek.glb") as any;
+  const clone = useMemo(() => {
+    const clonedScene = SkeletonUtils.clone(scene);
+    clonedScene.traverse((child: any) => {
+      if (child.isMesh) {
+        const oldMat = child.material as THREE.MeshStandardMaterial;
+        child.material = new THREE.MeshToonMaterial({
+          map: oldMat?.map,
+          color: oldMat?.color || "#ffffff",
+          transparent: oldMat?.transparent,
+          opacity: oldMat?.opacity,
+          alphaTest: 0.5,
+          side: THREE.DoubleSide,
         });
-        return clonedScene
-    }, [scene])
+        child.castShadow = true;
+        child.receiveShadow = true;
+      }
+    });
+    return clonedScene;
+  }, [scene]);
 
-    const { ref, actions, names } = useAnimations(animations, clone)
+  const { ref, actions, names } = useAnimations(animations, clone);
 
-    useEffect(() => {
-        if (!actions) return;
-        const talkAnim = names.find((n: string) =>
-            n.toLowerCase().includes('talk') ||
-            n.toLowerCase().includes('bicara') ||
-            n.toLowerCase().includes('speak')
-        ) || names[0]
+  // Desktop: right side, bigger. Mobile: closer to center, smaller
+  const mobilePos = [1.5, -0.5, 22] as [number, number, number];
+  const desktopPos = [3.5, -1.2, 22] as [number, number, number];
+  const pos = isMobile ? mobilePos : desktopPos;
+  const scale = isMobile ? 2.5 : 3.5;
 
-        if (talkAnim && actions[talkAnim]) {
-            if (isTyping) {
-                actions[talkAnim].reset().fadeIn(0.2).play()
-            } else {
-                actions[talkAnim].fadeOut(0.5)
-            }
-        }
-    }, [actions, names, isTyping])
+  useEffect(() => {
+    if (!actions) return;
+    const talkAnim =
+      names.find(
+        (n: string) =>
+          n.toLowerCase().includes("talk") ||
+          n.toLowerCase().includes("bicara") ||
+          n.toLowerCase().includes("speak"),
+      ) || names[0];
 
-    return (
-        <group position={[4, 1.2, 10]} rotation={[0, -Math.PI / 8, 0]} scale={2.2}>
-            <primitive ref={ref} object={clone} />
-        </group>
-    )
+    if (talkAnim && actions[talkAnim]) {
+      if (isTyping) {
+        actions[talkAnim].reset().fadeIn(0.2).play();
+      } else {
+        actions[talkAnim].fadeOut(0.5);
+      }
+    }
+  }, [actions, names, isTyping]);
+
+  return (
+    <group position={pos} rotation={[0, -Math.PI / 8, 0]} scale={scale}>
+      <primitive ref={ref} object={clone} />
+    </group>
+  );
 }
 
-function SceneContent({ isTyping }: { isTyping: boolean }) {
-    useFrame((state) => {
-        const t = state.clock.getElapsedTime()
-        state.camera.position.y = 5 + Math.sin(t * 0.5) * 0.2
-        state.camera.lookAt(2, 3, 0)
-    })
+function SceneContent({
+  isTyping,
+  isMobile,
+}: {
+  isTyping: boolean;
+  isMobile: boolean;
+}) {
+  useFrame((state) => {
+    const t = state.clock.getElapsedTime();
+    state.camera.position.y = 4 + Math.sin(t * 0.5) * 0.15;
+    // Mobile: look at center so both models are in frame. Desktop: slight right
+    state.camera.lookAt(isMobile ? 0 : 1.5, 2.5, 0);
+  });
 
-    return (
-        <Suspense fallback={null}>
-            <SkyBox />
-            <SimplePlanet />
-            <ambientLight intensity={1.5} />
-            <hemisphereLight args={["#ffffff", "#8BC34A", 1.0]} />
-            <directionalLight position={[10, 20, 10]} intensity={2} castShadow />
-            <PosModel />
-            <DialogNPC isTyping={isTyping} />
-        </Suspense>
-    )
+  return (
+    <Suspense fallback={null}>
+      <SkyBox />
+      <SimplePlanet />
+      <ambientLight intensity={1.5} />
+      <hemisphereLight args={["#ffffff", "#8BC34A", 1.0]} />
+      <directionalLight position={[10, 20, 10]} intensity={2} castShadow />
+      <PosModel isMobile={isMobile} />
+      <DialogNPC isTyping={isTyping} isMobile={isMobile} />
+    </Suspense>
+  );
 }
 
 export default function NPCKakekPage() {
@@ -223,6 +253,7 @@ export default function NPCKakekPage() {
             }
         }
     }
+  }, [displayText]);
 
     const handleStartStory = async () => {
         // Auto-accept mission when starting story
@@ -254,20 +285,50 @@ export default function NPCKakekPage() {
             router.push('/')
         })
     }
+  };
 
-    return (
-        <div className="relative w-screen h-screen overflow-hidden bg-[#87CEEB]">
-            {/* Direct 3D Canvas */}
-            <div className="absolute inset-0 z-0">
-                <Canvas shadows camera={{ position: [0, 5, 25], fov: 25 }}>
-                    <SceneContent isTyping={isTyping} />
-                </Canvas>
-            </div>
+  const handleClose = () => {
+    startTransition(() => {
+      router.push("/");
+    });
+  };
 
-            {/* Back Button */}
-            <button
-                onClick={handleClose}
-                className="absolute top-8 left-8 z-50 p-4 bg-white/10 hover:bg-white/20 backdrop-blur-md rounded-full text-white transition-all border border-white/20 shadow-lg cursor-pointer"
+  return (
+    <div className="relative w-screen h-screen overflow-hidden bg-[#87CEEB]">
+      {/* 3D Canvas - limited to upper portion so characters always stay visible above dialog */}
+      <div
+        className="absolute inset-0 z-0"
+        style={{ bottom: "clamp(160px, 30vh, 260px)" }}
+      >
+        {/* Desktop and mobile use different FOV via canvas */}
+        <Canvas shadows camera={{ position: [0, 4, 32], fov: 30 }}>
+          <SceneContent isTyping={isTyping} isMobile={isMobile} />
+        </Canvas>
+      </div>
+
+      {/* Home Button */}
+      <button
+        onClick={handleClose}
+        className="absolute top-4 sm:top-8 left-4 sm:left-8 z-50 p-2.5 sm:p-4 bg-[#87CEEB]/80 hover:bg-[#87CEEB] backdrop-blur-md rounded-full text-[#283618] transition-all duration-300 shadow-[1px_3px_6px_rgba(40,54,24,0.3)] active:shadow-none cursor-pointer group"
+      >
+        <Home
+          size={22}
+          className="sm:hidden group-hover:scale-110 transition-transform"
+        />
+        <Home
+          size={28}
+          className="hidden sm:block group-hover:scale-110 transition-transform"
+        />
+      </button>
+
+      {/* Dialogue UI — fixed at bottom, limited height */}
+      <div className="absolute bottom-0 left-0 right-0 z-40 animate-fade-in-bottom pointer-events-none">
+        <div className="relative w-full flex flex-col justify-end">
+          {/* Character Name Tag */}
+          <div className="relative ml-4 sm:ml-12">
+            <div
+              style={{ fontFamily: "var(--font-nanum-pen)" }}
+              className="absolute bottom-full translate-y-1 left-0 px-4 sm:px-8 py-2 sm:py-3 bg-[#606C38] border-4 border-[#283618] rounded-t-3xl text-xl sm:text-3xl font-black text-[#FEFAE0] whitespace-nowrap"
             >
                 <Home size={28} />
             </button>
@@ -316,6 +377,21 @@ export default function NPCKakekPage() {
                     </div>
                 </div>
             </div>
+          </div>
+
+          {/* Dialog Box — fixed height, scrollable text */}
+          <div
+            className="bg-[#FEFAE0] border-t-4 border-[#283618] px-5 sm:px-10 md:px-20 pt-5 sm:pt-6 pb-4 sm:pb-5 relative pointer-events-auto w-full shadow-[0_-10px_40px_rgba(0,0,0,0.1)]"
+            style={{ height: "clamp(160px, 30vh, 260px)" }}
+          >
+            {/* Paper texture */}
+            <div
+              className="absolute inset-0 opacity-20 pointer-events-none mix-blend-multiply"
+              style={{
+                backgroundImage:
+                  'url("https://www.transparenttextures.com/patterns/paper-fibers.png")',
+              }}
+            />
 
             {/* Mission Options Overlay - New Design */}
             {showMissionOptions && (
@@ -421,5 +497,23 @@ export default function NPCKakekPage() {
                 }
             `}</style>
         </div>
-    )
+      </div>
+
+      <style jsx global>{`
+        @keyframes fade-in-bottom {
+          from {
+            transform: translateY(100px);
+            opacity: 0;
+          }
+          to {
+            transform: translateY(0);
+            opacity: 1;
+          }
+        }
+        .animate-fade-in-bottom {
+          animation: fade-in-bottom 0.8s ease-out forwards;
+        }
+      `}</style>
+    </div>
+  );
 }

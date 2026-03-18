@@ -5,6 +5,7 @@ import { Environment, useTexture } from '@react-three/drei'
 import * as THREE from 'three'
 import Planet from './Planet'
 import Player from './Player'
+import { useJoystickStore } from './store'
 
 import { useRef, Suspense } from 'react'
 
@@ -27,7 +28,12 @@ function SkyBox() {
 }
 
 export default function GameScene() {
-    const playerPositionRef = useRef(new THREE.Vector3(0, 150, 0))
+    const lastPosition = useJoystickStore(s => s.lastPosition)
+    const playerPositionRef = useRef(new THREE.Vector3(
+        lastPosition?.x ?? 0,
+        lastPosition?.y ?? 150,
+        lastPosition?.z ?? 0
+    ))
 
     return (
         <Canvas shadows camera={{ position: [0, 30, 40], fov: 45 }} dpr={[1, 1]} flat gl={{ antialias: false, powerPreference: "high-performance", stencil: false, depth: true }}>

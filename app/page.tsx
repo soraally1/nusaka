@@ -109,13 +109,17 @@ export default function Home() {
       console.error('Firestore error:', error)
     } finally {
       setTimeout(() => {
-        // After check, if they have save, go to selection. If not, go to main (create).
-        startTransition(() => {
-            useJoystickStore.getState().setMenuState(hasSave ? 'select_character' : 'main')
-            setTimeout(() => {
-                finishTransition();
-            }, 600);
-        });
+        // Only set menu state if we are in the initial check or auth flow.
+        // If we are already 'playing' (e.g., returning from profile/npc), don't kick back to selection.
+        const currentMenu = useJoystickStore.getState().menuState;
+        if (currentMenu === 'checking' || currentMenu === 'auth') {
+            startTransition(() => {
+                useJoystickStore.getState().setMenuState(hasSave ? 'select_character' : 'main')
+                setTimeout(() => {
+                    finishTransition();
+                }, 600);
+            });
+        }
       }, 800)
     }
   }
@@ -165,8 +169,8 @@ export default function Home() {
 
 
       {menuState !== 'playing' && (
-        <div className="absolute inset-0 z-50 flex flex-col items-center justify-center pointer-events-none bg-[#FFF9E6]/30 backdrop-blur-xl transition-all duration-700">
-          <div className="pointer-events-auto w-full flex flex-col items-center justify-center h-full max-w-4xl px-4">
+        <div className="absolute inset-0 z-50 pointer-events-none bg-[#FFF9E6]/30 backdrop-blur-xl transition-all duration-700 overflow-y-auto">
+          <div className="pointer-events-auto w-full flex flex-col items-center justify-center min-h-full max-w-4xl mx-auto px-4 py-8">
             
             {(menuState === 'checking' || menuState === 'auth') && (
                <div className="relative w-80 h-36 md:w-[400px] md:h-48 transition-transform hover:scale-105 duration-300 mb-8">
