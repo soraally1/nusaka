@@ -112,9 +112,9 @@ export function MissionHUD() {
     loadMission()
   }, [setMission, completeMission])
 
-  // Show HUD when there's an active mission
+  // Show HUD when there's an active or completed mission
   useEffect(() => {
-    const visible = currentMission !== null && missionStatus === 'active'
+    const visible = currentMission !== null && (missionStatus === 'active' || missionStatus === 'completed')
     setIsVisible(visible)
     if (visible) {
       setTimeout(() => setAnimateIn(true), 50)
@@ -239,55 +239,64 @@ export function MissionHUD() {
 
             {/* Task list */}
             <div className="px-3 pb-3 space-y-2">
-              {tasks.map((task, idx) => {
-                const done = completedTasks.has(task.id)
-                return (
-                  <div
-                    key={task.id}
-                    className="flex items-start gap-2 group"
-                    style={{
-                      opacity: done ? 0.55 : 1,
-                      transition: 'opacity 0.3s ease',
-                    }}
-                  >
-                    {/* Step number or check */}
-                    <div className="flex-shrink-0 mt-0.5">
-                      {done ? (
-                        <CheckCircle2
-                          size={18}
-                          style={{ color: '#10B981' }}
-                        />
-                      ) : (
-                        <div
-                          className="flex items-center justify-center rounded-full"
-                          style={{
-                            width: 18,
-                            height: 18,
-                            border: '2px solid #BC6C25',
-                            background: 'transparent',
-                          }}
-                        >
-                          <span style={{ fontSize: 9, fontWeight: 900, color: '#BC6C25', lineHeight: 1 }}>
-                            {idx + 1}
-                          </span>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Task label */}
-                    <p
-                      className="text-xs leading-snug"
+              {missionStatus === 'completed' ? (
+                <div className="flex items-center gap-3 bg-[#10B981]/10 p-2 rounded-xl border-2 border-[#10B981]/30">
+                  <CheckCircle2 size={24} className="text-[#10B981] flex-shrink-0" />
+                  <p className="text-sm text-[#283618] font-bold leading-tight">
+                    Misi Selesai! Segera lapor kembali ke Kakek Nusaka.
+                  </p>
+                </div>
+              ) : (
+                tasks.map((task, idx) => {
+                  const done = completedTasks.has(task.id)
+                  return (
+                    <div
+                      key={task.id}
+                      className="flex items-start gap-2 group"
                       style={{
-                        color: done ? '#606C38' : '#283618',
-                        textDecoration: done ? 'line-through' : 'none',
-                        fontWeight: done ? 400 : 600,
+                        opacity: done ? 0.55 : 1,
+                        transition: 'opacity 0.3s ease',
                       }}
                     >
-                      {task.label}
-                    </p>
-                  </div>
-                )
-              })}
+                      {/* Step number or check */}
+                      <div className="flex-shrink-0 mt-0.5">
+                        {done ? (
+                          <CheckCircle2
+                            size={18}
+                            style={{ color: '#10B981' }}
+                          />
+                        ) : (
+                          <div
+                            className="flex items-center justify-center rounded-full"
+                            style={{
+                              width: 18,
+                              height: 18,
+                              border: '2px solid #BC6C25',
+                              background: 'transparent',
+                            }}
+                          >
+                            <span style={{ fontSize: 9, fontWeight: 900, color: '#BC6C25', lineHeight: 1 }}>
+                              {idx + 1}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Task label */}
+                      <p
+                        className="text-xs leading-snug"
+                        style={{
+                          color: done ? '#606C38' : '#283618',
+                          textDecoration: done ? 'line-through' : 'none',
+                          fontWeight: done ? 400 : 600,
+                        }}
+                      >
+                        {task.label}
+                      </p>
+                    </div>
+                  )
+                })
+              )}
 
               {tasks.length === 0 && (
                 <div className="flex items-center gap-2">
@@ -307,33 +316,23 @@ export function MissionHUD() {
   )
 }
 
-// Mission Complete Overlay
 export function MissionCompleteOverlay({ onClose }: { onClose: () => void }) {
   const { currentMission, missionStatus } = useMissionStore()
-  const router = useRouter()
-  const { startTransition } = useTransitionStore()
+  const [hasDismissed, setHasDismissed] = useState(false)
 
-  if (missionStatus !== 'completed') return null
+  if (missionStatus !== 'completed' || hasDismissed) return null
 
   const handleNext = () => {
-    onClose()
-    if (currentMission === 'orangutan') {
-      startTransition(() => router.push('/dongeng/komodo'))
-    } else if (currentMission === 'komodo') {
-      startTransition(() => router.push('/dongeng/elang'))
-    } else if (currentMission === 'elangjawa') {
-      startTransition(() => router.push('/dongeng/badak'))
-    } else {
-      startTransition(() => router.push('/npc/kakek'))
-    }
+    setHasDismissed(true)
+    if (onClose) onClose()
   }
 
-  const defaultDesc = 'Kamu berhasil menyelesaikan misi ini. Terima kasih telah menjadi penjaga rimba!'
+  const defaultDesc = 'Kamu berhasil menyelesaikan misi ini. Segera temui dan laporkan ke Kakek Nusaka!'
   let desc = defaultDesc
-  if (currentMission === 'orangutan') desc = 'Kamu berhasil menemukan dan melindungi Orang Utan. Terima kasih telah menjadi penjaga rimba!'
-  if (currentMission === 'komodo') desc = 'Kamu berhasil menelusuri jejak Naga Timur. Sang naga kini aman bersamamu!'
-  if (currentMission === 'elangjawa') desc = 'Kamu berhasil menolong penguasa langit biru. Langit kini aman kembali.'
-  if (currentMission === 'badak') desc = 'Makhluk bercula satu ini kini aman dari ancaman perburuan!'
+  if (currentMission === 'orangutan') desc = 'Kamu berhasil menemukan dan melindungi Orang Utan. Segera lapor ke Kakek Nusaka untuk tugas selanjutnya!'
+  if (currentMission === 'komodo') desc = 'Kamu berhasil menelusuri jejak Naga Timur. Temui Kakek Nusaka tentang keberhasilanmu!'
+  if (currentMission === 'elangjawa') desc = 'Kamu berhasil menolong penguasa langit biru. Kabari Kakek Nusaka atas pencapaian ini.'
+  if (currentMission === 'badak') desc = 'Makhluk bercula satu ini kini aman dari ancaman perburuan! Temui Kakek Nusaka untuk sebuah penghargaan.'
 
   return (
     <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
@@ -350,9 +349,9 @@ export function MissionCompleteOverlay({ onClose }: { onClose: () => void }) {
           </p>
           <button
             onClick={handleNext}
-            className="w-full py-3 bg-[#BC6C25] hover:bg-[#A05A1F] text-[#FEFAE0] font-bold rounded-xl border-4 border-[#283618] transition-all"
+            className="w-full py-3 bg-[#BC6C25] hover:bg-[#A05A1F] text-[#FEFAE0] font-bold rounded-xl border-4 border-[#283618] transition-all cursor-pointer"
           >
-            {currentMission === 'badak' ? 'Kembali ke Kakek Nusaka' : 'Lanjut Dongeng Berikutnya'}
+            Lanjutkan Penjelajahan
           </button>
         </div>
       </div>

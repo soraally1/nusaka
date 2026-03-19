@@ -237,23 +237,7 @@ export default function Home() {
       {menuState === 'playing' && (
         <>
           <MissionHUD />
-          <MissionCompleteOverlay onClose={() => {
-            clearMission();
-            localStorage.removeItem('current_mission');
-            localStorage.removeItem('mission_status');
-            localStorage.removeItem('mission_objective');
-            // Clear from Firestore too
-            const user = auth.currentUser;
-            if (user) {
-              import('firebase/firestore').then(({ updateDoc, doc }) => {
-                updateDoc(doc(db, 'players', user.uid), {
-                  mission: null,
-                  missionStatus: null,
-                  missionObjective: null
-                }).catch(console.error);
-              });
-            }
-          }} />
+          <MissionCompleteOverlay onClose={() => {}} />
         </>
       )}
 
