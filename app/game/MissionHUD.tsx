@@ -317,7 +317,6 @@ export function MissionCompleteOverlay({ onClose }: { onClose: () => void }) {
 
   const handleNext = () => {
     onClose()
-    startTransition(() => router.push('/'))
   }
 
   const defaultDesc = 'Kamu berhasil menyelesaikan misi ini. Kembalilah temui Kakek Nusaka!'
