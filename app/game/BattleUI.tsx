@@ -601,9 +601,9 @@ export default function BattleUI() {
         if (!isActive || !wildCreature) return;
         const targetId = 
             wildCreature.id === 3 ? 'orangutan' :
-            wildCreature.id === 2 ? 'komodo' :
-            wildCreature.id === 1 ? 'elangjawa' :
-            wildCreature.id === 4 ? 'badak' : null;
+            wildCreature.id === 8 ? 'komodo' :
+            wildCreature.id === 4 ? 'elangjawa' :
+            wildCreature.id === 5 ? 'badak' : null;
 
         if (targetId) {
             completeTask(targetId, `find_${targetId}`);
@@ -648,9 +648,9 @@ export default function BattleUI() {
         setPhase('player_attack', `${playerCreature.nickname || playerCreature.name} menggunakan ${attackName}!`);
         const targetId = 
             wildCreature.id === 3 ? 'orangutan' :
-            wildCreature.id === 2 ? 'komodo' :
-            wildCreature.id === 1 ? 'elangjawa' :
-            wildCreature.id === 4 ? 'badak' : null;
+            wildCreature.id === 8 ? 'komodo' :
+            wildCreature.id === 4 ? 'elangjawa' :
+            wildCreature.id === 5 ? 'badak' : null;
         if (targetId) completeTask(targetId, `battle_${targetId}`);
         triggerAttack(playerElement, 'enemy');
 
@@ -733,9 +733,9 @@ export default function BattleUI() {
 
                 const targetId = 
                     wildCreature.id === 3 ? 'orangutan' :
-                    wildCreature.id === 2 ? 'komodo' :
-                    wildCreature.id === 1 ? 'elangjawa' :
-                    wildCreature.id === 4 ? 'badak' : null;
+                    wildCreature.id === 8 ? 'komodo' :
+                    wildCreature.id === 4 ? 'elangjawa' :
+                    wildCreature.id === 5 ? 'badak' : null;
                 if (targetId) completeTask(targetId, `catch_${targetId}`);
 
                 // Show catch success screen

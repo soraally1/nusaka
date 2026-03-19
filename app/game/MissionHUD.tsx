@@ -317,14 +317,23 @@ export function MissionCompleteOverlay({ onClose }: { onClose: () => void }) {
 
   const handleNext = () => {
     onClose()
+    if (currentMission === 'orangutan') {
+      startTransition(() => router.push('/dongeng/komodo'))
+    } else if (currentMission === 'komodo') {
+      startTransition(() => router.push('/dongeng/elang'))
+    } else if (currentMission === 'elangjawa') {
+      startTransition(() => router.push('/dongeng/badak'))
+    } else {
+      startTransition(() => router.push('/npc/kakek'))
+    }
   }
 
-  const defaultDesc = 'Kamu berhasil menyelesaikan misi ini. Kembalilah temui Kakek Nusaka!'
+  const defaultDesc = 'Kamu berhasil menyelesaikan misi ini. Terima kasih telah menjadi penjaga rimba!'
   let desc = defaultDesc
-  if (currentMission === 'orangutan') desc = 'Orang Utan berhasil diselamatkan! Temui Kakek Nusaka untuk melaporkan keberhasilanmu.'
-  if (currentMission === 'komodo') desc = 'Jejak Naga Timur berhasil diamankan. Beritahu Kakek Nusaka tentang petualangan ini!'
-  if (currentMission === 'elangjawa') desc = 'Penguasa langit biru kini terbebas dari ancaman. Kakek Nusaka pasti bangga mendengarnya.'
-  if (currentMission === 'badak') desc = 'Makhluk bercula satu ini kini aman dari perburuan! Laporan terakhirmu ditunggu oleh Kakek Nusaka.'
+  if (currentMission === 'orangutan') desc = 'Kamu berhasil menemukan dan melindungi Orang Utan. Terima kasih telah menjadi penjaga rimba!'
+  if (currentMission === 'komodo') desc = 'Kamu berhasil menelusuri jejak Naga Timur. Sang naga kini aman bersamamu!'
+  if (currentMission === 'elangjawa') desc = 'Kamu berhasil menolong penguasa langit biru. Langit kini aman kembali.'
+  if (currentMission === 'badak') desc = 'Makhluk bercula satu ini kini aman dari ancaman perburuan!'
 
   return (
     <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
@@ -343,7 +352,7 @@ export function MissionCompleteOverlay({ onClose }: { onClose: () => void }) {
             onClick={handleNext}
             className="w-full py-3 bg-[#BC6C25] hover:bg-[#A05A1F] text-[#FEFAE0] font-bold rounded-xl border-4 border-[#283618] transition-all"
           >
-            Selesai
+            {currentMission === 'badak' ? 'Kembali ke Kakek Nusaka' : 'Lanjut Dongeng Berikutnya'}
           </button>
         </div>
       </div>
