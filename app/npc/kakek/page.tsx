@@ -171,7 +171,8 @@ export default function NPCKakekPage() {
     const [dialogStep, setDialogStep] = useState(0)
     const [displayText, setDisplayText] = useState('')
     const [isTyping, setIsTyping] = useState(false)
-    const [dialogMode, setDialogMode] = useState<'intro' | 'mission'>('intro')
+    const [dialogMode, setDialogMode] = useState<'intro' | 'orangutan' | 'komodo' | 'elangjawa' | 'badak' | 'waiting' | 'done'>('intro')
+    const [activeMissionObjective, setActiveMissionObjective] = useState('')
     const [showMissionOptions, setShowMissionOptions] = useState(false)
     const [isMobile, setIsMobile] = useState(false)
 
@@ -188,8 +189,23 @@ export default function NPCKakekPage() {
     // Check if intro was completed on mount
     useEffect(() => {
         const introComplete = localStorage.getItem('kakek_intro_complete')
+        const currentMission = localStorage.getItem('current_mission')
+        const missionStatus = localStorage.getItem('mission_status')
+
         if (introComplete === 'true') {
-            setDialogMode('mission')
+            if (!currentMission) {
+                setDialogMode('orangutan')
+            } else if (missionStatus === 'active') {
+                setActiveMissionObjective(localStorage.getItem('mission_objective') || '')
+                setDialogMode('waiting')
+            } else if (missionStatus === 'completed') {
+                if (currentMission === 'orangutan') setDialogMode('komodo')
+                else if (currentMission === 'komodo') setDialogMode('elangjawa')
+                else if (currentMission === 'elangjawa') setDialogMode('badak')
+                else setDialogMode('done')
+            } else {
+                setDialogMode('orangutan')
+            }
         }
     }, [])
 
@@ -201,17 +217,59 @@ export default function NPCKakekPage() {
         "Semoga perjalananmu menyenangkan dan penuh berkah. Sampai jumpa lagi!"
     ], [playerName])
 
-    const missionDialogs = useMemo(() => [
+    const orangutanDialogs = useMemo(() => [
         `Ah, ${playerName || 'Petualang'}! Kamu datang lagi.`,
         "Aku punya sesuatu yang penting untukmu. Ada seekor Orang Utan yang tersesat di hutan sebelah barat.",
         "Dia adalah penjaga rimba yang mulia, tetapi kini terancam oleh pemburu liar.",
         "Maukah kamu membantu menangkap dan melindungi Orang Utan tersebut?",
         "Tapi sebelum itu, dengarkanlah dongeng tentang asal-usul Sang Penjaga Rimba ini..."
     ], [playerName])
+    
+    const komodoDialogs = useMemo(() => [
+        `Luar biasa, ${playerName || 'Petualang'}! Kamu berhasil menyelamatkan Orang Utan.`,
+        "Namun, tugasmu belum selesai. Masih ada hewan lain yang butuh bantuan.",
+        "Di pulau seberang, ada kadal raksasa kuno yang kita sebut Naga Timur.",
+        "Maukah kamu menelusuri pulau untuk mencari perlindungan bagi Komodo purba?",
+        "Dengarkanlah legenda Naga Timur ini..."
+    ], [playerName])
 
-    const dialogs = useMemo(() => 
-        dialogMode === 'intro' ? introDialogs : missionDialogs
-    , [dialogMode, introDialogs, missionDialogs])
+    const elangjawaDialogs = useMemo(() => [
+        `Kerja bagus, ${playerName || 'Petualang'}! Naga purba itu kini aman bersamamu.`,
+        "Sekarang, alihkan pandanganmu ke langit Nusantara...",
+        "Elang Jawa yang perkasa, simbol negara kita, sedang terancam di tebing tinggi.",
+        "Maukah kamu melindunginya agar sayap kebebasan tetap mengepak di udara?",
+        "Mari kudongengkan kisah Sang Penguasa Langit..."
+    ], [playerName])
+
+    const badakDialogs = useMemo(() => [
+        `Hebat, ${playerName || 'Petualang'}! Penguasa langit telah kita lindungi.`,
+        "Tugas terakhirmu yang paling menantang: Badak bercula satu di Ujung Kulon.",
+        "Makhluk rahasia ini hampir sirna. Lindungi benteng terakhir tempat mereka hidup.",
+        "Dengarkan cerita senyap sang pemilik satu cula ini..."
+    ], [playerName])
+
+    const waitingDialogs = useMemo(() => [
+        `Hai ${playerName || 'Petualang'}! Jangan lupa, ada misi yang masih menunggumu.`,
+        `Tugasmu saat ini: ${activeMissionObjective}`,
+        "Bergegaslah, alam Nusantara mengandalkanmu!"
+    ], [playerName, activeMissionObjective])
+
+    const doneDialogs = useMemo(() => [
+        `Astaga, ${playerName || 'Petualang'}... Kamu berhasil.`,
+        "Semua penjaga rimba legendaris Nusantara kini telah berada dalam lindunganmu.",
+        "Dunia ini berterima kasih atas keberanianmu. Nusantara bangga memanggilmu pahlawan!",
+        "Kini, jelajahilah dunia ini dengan bebas."
+    ], [playerName])
+
+    const dialogs = useMemo(() => {
+        if (dialogMode === 'komodo') return komodoDialogs
+        if (dialogMode === 'elangjawa') return elangjawaDialogs
+        if (dialogMode === 'badak') return badakDialogs
+        if (dialogMode === 'waiting') return waitingDialogs
+        if (dialogMode === 'done') return doneDialogs
+        if (dialogMode === 'orangutan') return orangutanDialogs
+        return introDialogs
+    }, [dialogMode, introDialogs, orangutanDialogs, komodoDialogs, elangjawaDialogs, badakDialogs, waitingDialogs, doneDialogs])
 
     // Typewriter Effect
     useEffect(() => {
@@ -248,9 +306,10 @@ export default function NPCKakekPage() {
         } else {
             if (dialogMode === 'intro') {
                 localStorage.setItem('kakek_intro_complete', 'true')
-                setDialogMode('mission')
+                setDialogMode('orangutan')
                 setDialogStep(0)
-                setShowMissionOptions(true)
+            } else if (dialogMode === 'waiting' || dialogMode === 'done') {
+                handleClose()
             } else {
                 setShowMissionOptions(true)
             }
@@ -258,22 +317,32 @@ export default function NPCKakekPage() {
     }
 
     const handleStartStory = async () => {
-        localStorage.setItem('orangutan_story_watched', 'true')
-        localStorage.setItem('current_mission', 'orangutan')
+        localStorage.setItem(`${dialogMode}_story_watched`, 'true')
+        localStorage.setItem('current_mission', dialogMode)
         localStorage.setItem('mission_status', 'active')
-        localStorage.setItem('mission_objective', 'Tangkap Orang Utan di hutan barat')
+        let obj = ''
+        if (dialogMode === 'orangutan') obj = 'Tangkap Orang Utan di hutan barat'
+        if (dialogMode === 'komodo') obj = 'Temukan jejak Naga Purba di pulau timur'
+        if (dialogMode === 'elangjawa') obj = 'Temukan sarang Elang Jawa di puncak gunung'
+        if (dialogMode === 'badak') obj = 'Temukan Badak Jawa di hutan Ujung Kulon'
+        localStorage.setItem('mission_objective', obj)
         
         startTransition(() => {
-            router.push('/dongeng/orangutan')
+            router.push(`/dongeng/${dialogMode === 'elangjawa' ? 'elang' : dialogMode}`)
         })
     }
 
     const handleAcceptMissionDirect = () => {
-        localStorage.setItem('orangutan_story_watched', 'true')
-        localStorage.setItem('current_mission', 'orangutan')
+        localStorage.setItem(`${dialogMode}_story_watched`, 'true')
+        localStorage.setItem('current_mission', dialogMode)
         localStorage.setItem('mission_status', 'active')
-        localStorage.setItem('mission_objective', 'Tangkap Orang Utan di hutan barat')
-        localStorage.setItem('orangutan_mission_accepted', 'true')
+        let obj = ''
+        if (dialogMode === 'orangutan') obj = 'Tangkap Orang Utan di hutan barat'
+        if (dialogMode === 'komodo') obj = 'Temukan jejak Naga Purba di pulau timur'
+        if (dialogMode === 'elangjawa') obj = 'Temukan sarang Elang Jawa di puncak gunung'
+        if (dialogMode === 'badak') obj = 'Temukan Badak Jawa di hutan Ujung Kulon'
+        localStorage.setItem('mission_objective', obj)
+        localStorage.setItem(`${dialogMode}_mission_accepted`, 'true')
         
         startTransition(() => {
             router.push('/')
@@ -348,8 +417,9 @@ export default function NPCKakekPage() {
                                     className="group flex items-center gap-3 sm:gap-6 bg-[#DDA15E] hover:bg-[#BC6C25] border-4 border-[#283618] px-6 sm:px-12 py-3 sm:py-5 rounded-2xl shadow-[4px_4px_0_#283618] sm:shadow-[8px_8px_0_#283618] active:translate-y-2 active:shadow-none transition-all cursor-pointer"
                                 >
                                     <span style={{ fontFamily: "var(--font-nanum-pen)" }} className="text-2xl sm:text-4xl md:text-5xl font-black text-[#FEFAE0]">
-                                        {dialogStep === dialogs.length - 1 && dialogMode === 'intro' ? "Misi Baru!" : 
-                                         dialogStep === dialogs.length - 1 && dialogMode === 'mission' && !showMissionOptions ? "Lanjutkan" : 
+                                        {dialogStep === dialogs.length - 1 && dialogMode === 'intro' ? "Lanjut!" :
+                                         dialogStep === dialogs.length - 1 && ['orangutan','komodo','elangjawa','badak'].includes(dialogMode) && !showMissionOptions ? "Misi Baru!" : 
+                                         dialogStep === dialogs.length - 1 && (dialogMode === 'waiting' || dialogMode === 'done') ? "Selesai" :
                                          (isTyping ? "Skip" : "Lanjut")}
                                     </span>
                                     <ChevronRight className="w-6 h-6 sm:w-10 sm:h-10 md:w-12 md:h-12 text-[#FEFAE0] group-hover:translate-x-2 transition-transform" />
@@ -383,7 +453,12 @@ export default function NPCKakekPage() {
                             >
                                 Misi Baru!
                             </h2>
-                            <p className="text-[#606C38] mt-1">Penjaga Rimba</p>
+                            <p className="text-[#606C38] mt-1">
+                                {dialogMode === 'orangutan' ? 'Penjaga Rimba' :
+                                 dialogMode === 'komodo' ? 'Naga Timur' :
+                                 dialogMode === 'elangjawa' ? 'Penguasa Langit' :
+                                 dialogMode === 'badak' ? 'Ksatria Ujung Kulon' : ''}
+                            </p>
                         </div>
 
                         {/* Mission Card */}
@@ -393,7 +468,10 @@ export default function NPCKakekPage() {
                                 <div>
                                     <p className="text-sm text-[#606C38] font-bold uppercase tracking-wider mb-1">Tujuan</p>
                                     <p className="text-[#283618] font-medium">
-                                        Tangkap dan lindungi Orang Utan yang tersesat di hutan barat
+                                        {dialogMode === 'orangutan' ? 'Tangkap dan lindungi Orang Utan yang tersesat di hutan barat' :
+                                         dialogMode === 'komodo' ? 'Temukan jejak Naga Purba di pulau timur' :
+                                         dialogMode === 'elangjawa' ? 'Temukan sarang Elang Jawa di puncak gunung' :
+                                         dialogMode === 'badak' ? 'Temukan Badak Jawa di hutan Ujung Kulon' : ''}
                                     </p>
                                 </div>
                             </div>

@@ -3,16 +3,32 @@
 import { useEffect, useState } from 'react'
 import { useMissionStore } from './store'
 import { CheckCircle2, MapPin, ChevronDown, ChevronUp, Scroll } from 'lucide-react'
+import { useRouter } from 'next/navigation'
+import { useTransitionStore } from '../store/transitionStore'
 import { auth } from '../../lib/firebase'
 import { doc, getDoc, updateDoc } from 'firebase/firestore'
 import { db } from '../../lib/firebase'
 
-// Mission tasks definition per mission type
 const MISSION_TASKS: Record<string, { id: string; label: string }[]> = {
   orangutan: [
     { id: 'find_orangutan', label: 'Temukan Orang Utan di hutan barat' },
     { id: 'battle_orangutan', label: 'Hadapi Orang Utan dalam pertarungan' },
     { id: 'catch_orangutan', label: 'Tangkap dan lindungi Orang Utan' },
+  ],
+  komodo: [
+    { id: 'find_komodo', label: 'Temukan jejak Naga Timur' },
+    { id: 'battle_komodo', label: 'Hadapi sang Naga dalam pertarungan' },
+    { id: 'catch_komodo', label: 'Tangkap dan lindungi Komodo' },
+  ],
+  elangjawa: [
+    { id: 'find_elangjawa', label: 'Temukan Elang Jawa di puncak langit' },
+    { id: 'battle_elangjawa', label: 'Hadapi penguasa sayap langit' },
+    { id: 'catch_elangjawa', label: 'Tangkap dan lindungi Elang Jawa' },
+  ],
+  badak: [
+    { id: 'find_badak', label: 'Temukan badak yang pemalu' },
+    { id: 'battle_badak', label: 'Hadapi badak bercula satu tertangguh' },
+    { id: 'catch_badak', label: 'Tangkap dan lindungi Badak Jawa' },
   ],
 }
 
@@ -119,14 +135,31 @@ export function MissionHUD() {
     return () => window.removeEventListener('mission_task_update', handler)
   }, [currentMission])
 
-  if (!isVisible || !currentMission) return null
-
-  const tasks = MISSION_TASKS[currentMission] || []
+  const tasks = currentMission ? MISSION_TASKS[currentMission] || [] : []
   const completedCount = tasks.filter(t => completedTasks.has(t.id)).length
   const progressPct = tasks.length > 0 ? (completedCount / tasks.length) * 100 : 0
 
+  // Auto-complete if 100%
+  useEffect(() => {
+    if (progressPct >= 100 && missionStatus === 'active') {
+      completeMission()
+      localStorage.setItem('mission_status', 'completed')
+      const user = auth.currentUser
+      if (user) {
+        updateDoc(doc(db, 'players', user.uid), {
+          missionStatus: 'completed'
+        }).catch(err => console.error(err))
+      }
+    }
+  }, [progressPct, missionStatus, completeMission])
+
+  if (!isVisible || !currentMission) return null
+
   const missionNames: Record<string, string> = {
     orangutan: 'Penjaga Rimba',
+    komodo: 'Naga Timur',
+    elangjawa: 'Penguasa Langit',
+    badak: 'Ksatria Ujung Kulon',
   }
   const missionName = missionNames[currentMission] || 'Misi Aktif'
 
@@ -276,9 +309,23 @@ export function MissionHUD() {
 
 // Mission Complete Overlay
 export function MissionCompleteOverlay({ onClose }: { onClose: () => void }) {
-  const { missionStatus } = useMissionStore()
+  const { currentMission, missionStatus } = useMissionStore()
+  const router = useRouter()
+  const { startTransition } = useTransitionStore()
 
   if (missionStatus !== 'completed') return null
+
+  const handleNext = () => {
+    onClose()
+    startTransition(() => router.push('/'))
+  }
+
+  const defaultDesc = 'Kamu berhasil menyelesaikan misi ini. Kembalilah temui Kakek Nusaka!'
+  let desc = defaultDesc
+  if (currentMission === 'orangutan') desc = 'Orang Utan berhasil diselamatkan! Temui Kakek Nusaka untuk melaporkan keberhasilanmu.'
+  if (currentMission === 'komodo') desc = 'Jejak Naga Timur berhasil diamankan. Beritahu Kakek Nusaka tentang petualangan ini!'
+  if (currentMission === 'elangjawa') desc = 'Penguasa langit biru kini terbebas dari ancaman. Kakek Nusaka pasti bangga mendengarnya.'
+  if (currentMission === 'badak') desc = 'Makhluk bercula satu ini kini aman dari perburuan! Laporan terakhirmu ditunggu oleh Kakek Nusaka.'
 
   return (
     <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
@@ -291,13 +338,13 @@ export function MissionCompleteOverlay({ onClose }: { onClose: () => void }) {
             Misi Selesai!
           </h2>
           <p className="text-[#5C4033] mb-6">
-            Kamu berhasil menemukan dan melindungi Orang Utan. Terima kasih telah menjadi penjaga rimba!
+            {desc}
           </p>
           <button
-            onClick={onClose}
+            onClick={handleNext}
             className="w-full py-3 bg-[#BC6C25] hover:bg-[#A05A1F] text-[#FEFAE0] font-bold rounded-xl border-4 border-[#283618] transition-all"
           >
-            Kembali ke Kakek Nusaka
+            Selesai
           </button>
         </div>
       </div>

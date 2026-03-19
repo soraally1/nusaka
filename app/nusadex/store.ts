@@ -14,6 +14,7 @@ export interface CreatureState {
     seenIds: number[];
     addCreature: (creature: Omit<PartnerCreature, 'instanceId'> & { instanceId?: string }) => void;
     updateCreature: (creature: PartnerCreature) => void;
+    nicknameCreature: (instanceId: string, nickname: string) => void;
     setFirstPartner: (creature: Omit<PartnerCreature, 'instanceId'> & { instanceId?: string }) => void;
     markAsSeen: (id: number) => void;
     reset: () => void;
@@ -39,8 +40,22 @@ export const useCreatureStore = create<CreatureState>()(
             updateCreature: (creature) =>
                 set((state) => ({
                     capturedCreatures: state.capturedCreatures.map((c) =>
-                        c.id === creature.id ? creature : c
+                        c.instanceId === creature.instanceId ? creature : c
                     ),
+                    firstPartner:
+                        state.firstPartner?.instanceId === creature.instanceId
+                            ? creature
+                            : state.firstPartner,
+                })),
+            nicknameCreature: (instanceId, nickname) =>
+                set((state) => ({
+                    capturedCreatures: state.capturedCreatures.map((c) =>
+                        c.instanceId === instanceId ? { ...c, nickname } : c
+                    ),
+                    firstPartner:
+                        state.firstPartner?.instanceId === instanceId
+                            ? { ...state.firstPartner, nickname }
+                            : state.firstPartner,
                 })),
             setFirstPartner: (creature) => {
                 const starter: PartnerCreature = {
