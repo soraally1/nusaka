@@ -21,6 +21,20 @@ export default function GlobalAudio() {
         audioRef.current.volume = isAudioMuted ? 0 : audioVolume;
     }, [isAudioMuted, menuState, audioVolume]);
 
+    // Pause audio when the page/tab is hidden (e.g. Chrome minimised or tab closed)
+    useEffect(() => {
+        const handleVisibility = () => {
+            if (!audioRef.current) return;
+            if (document.hidden) {
+                audioRef.current.pause();
+            } else if (menuState === 'playing' && !useJoystickStore.getState().isAudioMuted) {
+                audioRef.current.play().catch(() => { });
+            }
+        };
+        document.addEventListener('visibilitychange', handleVisibility);
+        return () => document.removeEventListener('visibilitychange', handleVisibility);
+    }, [menuState]);
+
     useEffect(() => {
         // Stop if not playing or creating character
         if (menuState !== 'playing') {

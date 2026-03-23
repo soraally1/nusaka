@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import { ChevronLeft, ChevronRight, Home, MapPin, Mountain, History, Shield, Trees, Volume2, VolumeX } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Home, MapPin, Mountain, History, Shield, Trees, Volume2, VolumeX, Leaf, Shield as ShieldIcon } from 'lucide-react'
 import { useTransitionStore } from '../../store/transitionStore'
 import { auth } from '../../../lib/firebase'
 import { doc, updateDoc } from 'firebase/firestore'
@@ -279,7 +279,8 @@ export default function DongengBadakPage() {
                                     }}
                                     className="px-3 py-1 text-[#606C38] hover:text-[#283618] font-semibold transition-colors text-sm"
                                 >
-                                    Skip ⏵
+                                    <ChevronRight size={16} />
+                                    Skip
                                 </button>
                             )}
 
@@ -330,10 +331,10 @@ export default function DongengBadakPage() {
 
             {/* Corner Decorations */}
             <div className="absolute top-24 left-4 hidden xl:block z-20">
-                <div className="text-4xl opacity-20">🦏</div>
+                <Shield size={36} className="text-[#4B5563] opacity-20" />
             </div>
             <div className="absolute bottom-36 right-4 hidden xl:block z-20">
-                <div className="text-4xl opacity-20">🌿</div>
+                <Leaf size={36} className="text-[#15803D] opacity-20" />
             </div>
 
             <style jsx global>{`

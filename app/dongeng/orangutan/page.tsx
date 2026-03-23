@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import { ChevronLeft, ChevronRight, Home, MapPin, Trees, Mountain, Maximize2, Volume2, VolumeX } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Home, MapPin, Trees, Mountain, Maximize2, Volume2, VolumeX, Leaf, PawPrint } from 'lucide-react'
 import { useTransitionStore } from '../../store/transitionStore'
 import { auth } from '../../../lib/firebase'
 import { doc, updateDoc } from 'firebase/firestore'
@@ -276,8 +276,8 @@ export default function DongengOrangutanPage() {
                             </div>
                         </div>
 
-                        {/* Story Text - Compact */}
-                        <div className="mb-3 max-h-[120px] md:max-h-[150px] overflow-y-auto pr-2 custom-scrollbar">
+                        {/* Story Text - Compact, scrollable */}
+                        <div className="mb-3 overflow-y-auto pr-2 custom-scrollbar" style={{ maxHeight: 'clamp(80px, 22vh, 150px)' }}>
                             <p
                                 style={{ fontFamily: 'var(--font-nanum-pen), cursive' }}
                                 className="text-base md:text-lg text-[#5C4033] leading-relaxed whitespace-pre-line"
@@ -309,7 +309,8 @@ export default function DongengOrangutanPage() {
                                     }}
                                     className="px-3 py-1 text-[#606C38] hover:text-[#283618] font-semibold transition-colors text-sm"
                                 >
-                                    Skip ⏵
+                                    <ChevronRight size={16} />
+                                    Skip
                                 </button>
                             )}
 
@@ -360,10 +361,10 @@ export default function DongengOrangutanPage() {
 
             {/* Corner Decorations */}
             <div className="absolute top-24 left-4 hidden xl:block z-20">
-                <div className="text-4xl opacity-20">🌿</div>
+                <Leaf size={36} className="text-[#10B981] opacity-20" />
             </div>
             <div className="absolute bottom-36 right-4 hidden xl:block z-20">
-                <div className="text-4xl opacity-20">🦧</div>
+                <PawPrint size={36} className="text-[#10B981] opacity-20" />
             </div>
 
             <style jsx global>{`

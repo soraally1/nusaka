@@ -11,7 +11,7 @@ import { auth } from '../lib/firebase'
 import { onAuthStateChanged, User } from 'firebase/auth'
 import { doc, getDoc } from 'firebase/firestore'
 import { db } from '../lib/firebase'
-import { Loader2, User as UserIcon, Sword, Volume2, VolumeX } from 'lucide-react'
+import { Loader2, User as UserIcon, Sword, Volume2, VolumeX, Mountain, User as UserAvatar } from 'lucide-react'
 import { useNotifStore } from "./nusadex/notifStore";
 import NusadexPopup from "./nusadex/NusadexPopup";
 import { useBattleStore } from './game/battleStore';
@@ -317,7 +317,7 @@ export default function Home() {
             onClick={handleStoneMinigameStart}
             className="flex items-center justify-center gap-4 bg-[#6EE7B7] hover:bg-[#34D399] border-4 border-[#064E3B] w-full max-w-[340px] md:w-auto px-6 py-2 md:px-8 md:py-4 rounded-[24px] md:rounded-[32px] shadow-[6px_6px_0_#064E3B] md:shadow-[4px_4px_0_#064E3B] hover:-translate-y-1 transition-transform"
           >
-            <div className="text-4xl">🪨</div>
+            <Mountain className="w-8 h-8 md:w-8 md:h-8 text-[#064E3B]" strokeWidth={2} />
             <div className="flex flex-col items-start leading-none text-[#064E3B]" style={{ fontFamily: 'var(--font-nanum-pen)' }}>
               <span className="text-3xl md:text-3xl font-black">Periksa Batu!</span>
               <span className="text-sm md:text-base font-bold text-[#064E3B]/70 tracking-widest uppercase">Tekan "E" atau Tap</span>
@@ -333,7 +333,7 @@ export default function Home() {
             onClick={() => startTransition(() => router.push('/npc/kakek'))}
             className="flex items-center justify-center gap-4 bg-[#FCD34D] hover:bg-[#FBBF24] border-4 border-[#92400E] w-full max-w-[340px] md:w-auto px-6 py-2 md:px-8 md:py-4 rounded-[24px] md:rounded-[32px] shadow-[6px_6px_0_#92400E] md:shadow-[4px_4px_0_#92400E] hover:-translate-y-1 transition-transform"
           >
-            <div className="text-4xl">👴</div>
+            <UserAvatar className="w-8 h-8 md:w-8 md:h-8 text-[#92400E]" strokeWidth={2} />
             <div className="flex flex-col items-start leading-none text-[#92400E]" style={{ fontFamily: 'var(--font-nanum-pen)' }}>
               <span className="text-3xl md:text-3xl font-black">Bicara dengan Kakek!</span>
               <span className="text-sm md:text-base font-bold text-[#92400E]/70 tracking-widest uppercase">Tekan "E" atau Tap</span>

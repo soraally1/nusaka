@@ -159,4 +159,5 @@ export default function Creature3D({
 useGLTF.preload("/model/rajawali.glb");
 useGLTF.preload("/model/Komodo.glb");
 useGLTF.preload("/model/OrangUtan.glb");
-
+useGLTF.preload("/model/badag.glb");
+useGLTF.preload("/model/HarimauSumatera.glb");

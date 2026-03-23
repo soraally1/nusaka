@@ -56,7 +56,7 @@ export function completeTask(mission: string, taskId: string) {
 export function MissionHUD() {
   const { currentMission, missionStatus, setMission, completeMission } = useMissionStore()
   const [isVisible, setIsVisible] = useState(false)
-  const [isCollapsed, setIsCollapsed] = useState(false)
+  const [isCollapsed, setIsCollapsed] = useState(true) // collapsed by default on mobile
   const [completedTasks, setCompletedTasks] = useState<Set<string>>(new Set())
   const [animateIn, setAnimateIn] = useState(false)
 
@@ -139,9 +139,9 @@ export function MissionHUD() {
   const completedCount = tasks.filter(t => completedTasks.has(t.id)).length
   const progressPct = tasks.length > 0 ? (completedCount / tasks.length) * 100 : 0
 
-  // Auto-complete if 100%
+  // Auto-complete if 100% — guard against tasks.length === 0 (0/0 edge case)
   useEffect(() => {
-    if (progressPct >= 100 && missionStatus === 'active') {
+    if (progressPct >= 100 && tasks.length > 0 && missionStatus === 'active') {
       completeMission()
       localStorage.setItem('mission_status', 'completed')
       const user = auth.currentUser
@@ -167,11 +167,11 @@ export function MissionHUD() {
     <>
       {/* Quest Tracker Panel - Top Left */}
       <div
-        className="absolute left-4 sm:left-6 z-50 select-none"
+        className="absolute left-2 z-50 select-none"
         style={{
-          top: '160px', // Lowered slightly so it stays clear of the minimap
-          width: '260px',
-          transform: animateIn ? 'translateX(0)' : 'translateX(-280px)',
+          top: 'max(160px, 18vh)', 
+          width: 'min(210px, calc(50vw - 8px))',
+          transform: animateIn ? 'translateX(0)' : 'translateX(-120%)',
           transition: 'transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1)',
         }}
       >
@@ -181,29 +181,30 @@ export function MissionHUD() {
           style={{
             background: 'rgba(254, 250, 224, 0.95)',
             backdropFilter: 'blur(12px)',
-            border: '3px solid #283618',
+            border: 'max(2px, 0.25rem) solid #283618',
+            borderWidth: '3px',
             boxShadow: '4px 4px 0 #283618',
           }}
         >
           {/* Header - clickable to collapse */}
           <button
             onClick={() => setIsCollapsed(c => !c)}
-            className="w-full flex items-center gap-2 px-3 py-2.5 cursor-pointer group"
+            className="w-full flex items-center gap-1.5 px-2 py-1.5 cursor-pointer group"
             style={{ background: '#606C38' }}
           >
             <div
               className="flex items-center justify-center rounded-lg flex-shrink-0"
-              style={{ width: 28, height: 28, background: '#BC6C25', border: '2px solid #283618' }}
+              style={{ width: 18, height: 18, background: '#BC6C25', border: '2px solid #283618' }}
             >
-              <Scroll size={14} className="text-white" />
+              <Scroll size={9} className="text-white" />
             </div>
-            <div className="flex-1 text-left">
-              <p className="text-[10px] font-bold text-[#FEFAE0]/70 uppercase tracking-wider leading-none">Misi Aktif</p>
-              <p className="text-sm font-bold text-[#FEFAE0] leading-tight">{missionName}</p>
+            <div className="flex-1 text-left min-w-0">
+              <p className="text-[8px] font-bold text-[#FEFAE0]/70 uppercase tracking-wider leading-none">Misi Aktif</p>
+              <p className="text-[10px] font-bold text-[#FEFAE0] leading-tight truncate">{missionName}</p>
             </div>
             {isCollapsed
-              ? <ChevronDown size={16} className="text-[#FEFAE0]/70 group-hover:text-[#FEFAE0] transition-colors flex-shrink-0" />
-              : <ChevronUp size={16} className="text-[#FEFAE0]/70 group-hover:text-[#FEFAE0] transition-colors flex-shrink-0" />
+              ? <ChevronDown size={12} className="text-[#FEFAE0]/70 group-hover:text-[#FEFAE0] transition-colors flex-shrink-0" />
+              : <ChevronUp size={12} className="text-[#FEFAE0]/70 group-hover:text-[#FEFAE0] transition-colors flex-shrink-0" />
             }
           </button>
 
@@ -216,12 +217,12 @@ export function MissionHUD() {
             }}
           >
             {/* Progress bar */}
-            <div className="px-3 pt-3 pb-1">
+            <div className="px-2 pt-1.5 pb-1">
               <div className="flex items-center justify-between mb-1">
-                <span className="text-[10px] font-bold text-[#606C38] uppercase tracking-wider">Progres</span>
-                <span className="text-[10px] font-bold text-[#BC6C25]">{completedCount}/{tasks.length}</span>
+                <span className="text-[8px] font-bold text-[#606C38] uppercase tracking-wider">Prog</span>
+                <span className="text-[8px] font-bold text-[#BC6C25]">{completedCount}/{tasks.length}</span>
               </div>
-              <div className="h-2 rounded-full overflow-hidden" style={{ background: 'rgba(40,54,24,0.15)' }}>
+              <div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'rgba(40,54,24,0.15)' }}>
                 <div
                   className="h-full rounded-full transition-all duration-700"
                   style={{
@@ -235,15 +236,15 @@ export function MissionHUD() {
             </div>
 
             {/* Divider */}
-            <div className="mx-3 my-2" style={{ height: 1, background: 'rgba(40,54,24,0.12)' }} />
+            <div className="mx-2 my-1" style={{ height: 1, background: 'rgba(40,54,24,0.12)' }} />
 
             {/* Task list */}
-            <div className="px-3 pb-3 space-y-2">
+            <div className="px-2 pb-2 space-y-1">
               {missionStatus === 'completed' ? (
-                <div className="flex items-center gap-3 bg-[#10B981]/10 p-2 rounded-xl border-2 border-[#10B981]/30">
-                  <CheckCircle2 size={24} className="text-[#10B981] flex-shrink-0" />
-                  <p className="text-sm text-[#283618] font-bold leading-tight">
-                    Misi Selesai! Segera lapor kembali ke Kakek Nusaka.
+                <div className="flex items-center gap-2 bg-[#10B981]/10 p-1.5 rounded-xl border-2 border-[#10B981]/30">
+                  <CheckCircle2 size={18} className="text-[#10B981] flex-shrink-0" />
+                  <p className="text-[10px] text-[#283618] font-bold leading-tight">
+                    Misi Selesai! Lapor ke Kakek.
                   </p>
                 </div>
               ) : (
@@ -252,39 +253,36 @@ export function MissionHUD() {
                   return (
                     <div
                       key={task.id}
-                      className="flex items-start gap-2 group"
+                      className="flex items-start gap-1.5 group"
                       style={{
                         opacity: done ? 0.55 : 1,
                         transition: 'opacity 0.3s ease',
                       }}
                     >
-                      {/* Step number or check */}
                       <div className="flex-shrink-0 mt-0.5">
                         {done ? (
                           <CheckCircle2
-                            size={18}
+                            size={14}
                             style={{ color: '#10B981' }}
                           />
                         ) : (
                           <div
                             className="flex items-center justify-center rounded-full"
                             style={{
-                              width: 18,
-                              height: 18,
+                              width: 14,
+                              height: 14,
                               border: '2px solid #BC6C25',
                               background: 'transparent',
                             }}
                           >
-                            <span style={{ fontSize: 9, fontWeight: 900, color: '#BC6C25', lineHeight: 1 }}>
+                            <span style={{ fontSize: 7, fontWeight: 900, color: '#BC6C25', lineHeight: 1 }}>
                               {idx + 1}
                             </span>
                           </div>
                         )}
                       </div>
-
-                      {/* Task label */}
                       <p
-                        className="text-xs leading-snug"
+                        className="text-[10px] leading-snug"
                         style={{
                           color: done ? '#606C38' : '#283618',
                           textDecoration: done ? 'line-through' : 'none',
@@ -299,9 +297,9 @@ export function MissionHUD() {
               )}
 
               {tasks.length === 0 && (
-                <div className="flex items-center gap-2">
-                  <MapPin size={14} className="text-[#BC6C25] flex-shrink-0" />
-                  <p className="text-xs text-[#5C4033] font-medium leading-snug">
+                <div className="flex items-center gap-1.5">
+                  <MapPin size={10} className="text-[#BC6C25] flex-shrink-0" />
+                  <p className="text-[10px] text-[#5C4033] font-medium leading-snug">
                     Jelajahi dunia Nusaka!
                   </p>
                 </div>
@@ -335,13 +333,13 @@ export function MissionCompleteOverlay({ onClose }: { onClose: () => void }) {
   if (currentMission === 'badak') desc = 'Makhluk bercula satu ini kini aman dari ancaman perburuan! Temui Kakek Nusaka untuk sebuah penghargaan.'
 
   return (
-    <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
-      <div className="bg-[#FEFAE0] border-4 border-[#283618] rounded-3xl p-8 max-w-md w-full mx-4 shadow-[8px_8px_0_#283618]">
+    <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+      <div className="bg-[#FEFAE0] border-4 border-[#283618] rounded-[2rem] p-6 sm:p-8 w-full max-w-[95vw] sm:max-w-md mx-auto shadow-[6px_6px_0_#283618] sm:shadow-[8px_8px_0_#283618]">
         <div className="text-center">
-          <div className="w-20 h-20 bg-[#10B981] rounded-full flex items-center justify-center mx-auto mb-4 border-4 border-[#283618]">
-            <CheckCircle2 size={40} className="text-white" />
+          <div className="w-16 h-16 sm:w-20 sm:h-20 bg-[#10B981] rounded-full flex items-center justify-center mx-auto mb-4 border-4 border-[#283618]">
+            <CheckCircle2 className="text-white w-8 h-8 sm:w-10 sm:h-10" />
           </div>
-          <h2 className="text-2xl font-bold text-[#283618] mb-2" style={{ fontFamily: 'var(--font-nanum-pen), cursive' }}>
+          <h2 className="text-xl sm:text-2xl font-bold text-[#283618] mb-2" style={{ fontFamily: 'var(--font-nanum-pen), cursive' }}>
             Misi Selesai!
           </h2>
           <p className="text-[#5C4033] mb-6">

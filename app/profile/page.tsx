@@ -35,7 +35,7 @@ const ElementIcon = ({ element, className }: { element: string; className?: stri
 
 export default function ProfilePage() {
   const router = useRouter();
-  const { startTransition } = useTransitionStore();
+  const { startTransition, finishTransition } = useTransitionStore();
   const playerName = useJoystickStore(s => s.playerName);
   const capturedCreatures = useCreatureStore((state: CreatureState) => state.capturedCreatures);
   const firstPartner = useCreatureStore((state: CreatureState) => state.firstPartner);
@@ -63,7 +63,11 @@ export default function ProfilePage() {
         <header className="mb-0 md:mb-6 flex items-center justify-between border-b-[4px] border-[#374151] p-4 md:p-0 md:pb-4 bg-[#FFF9E6] sticky top-0 z-50">
           <div className="flex items-center gap-4 md:gap-6">
             <button
-              onClick={() => startTransition(() => router.push('/'))}
+              onClick={() => {
+              startTransition(() => router.push('/'));
+              // Safety: force-finish transition after 1.5s in case path-change listener misses it
+              setTimeout(() => finishTransition(), 1500);
+            }}
               className="w-12 h-12 md:w-16 md:h-16 bg-white border-[4px] border-[#374151] rounded-full flex items-center justify-center hover:bg-[#FEF08A] hover:-translate-x-1 hover:-translate-y-1 transition-transform text-[#374151] text-4xl md:text-5xl font-black"
             >
               ←

@@ -13,6 +13,7 @@ export interface Creature {
     // Visual tweaks
     scale?: number;
     position?: [number, number, number];
+    rotationOffset?: number;  // radians, applied on top of default facing angle
 }
 
 export const NUSA_CREATURES: Creature[] = [
@@ -79,5 +80,22 @@ export const NUSA_CREATURES: Creature[] = [
         exp: 75,
         scale: 1.2,
         position: [0, 1.5, 0],
+    },
+    {
+        id: 5,
+        name: "Harimau Sumatera",
+        type: "Beast",
+        element: "Tanah",
+        description:
+            "Satu-satunya subspesies harimau yang masih tersisa di Indonesia. Predator puncak yang menghuni hutan lebat Sumatera. Dikenal dengan belangnya yang rapat dan ukurannya yang lebih kecil namun tak kalah ganas.",
+        modelUrl: "/model/HarimauSumatera.glb",
+        accent: "text-orange-600",
+        habitat: "Hutan Sumatera",
+        status: "Sangat Kritis",
+        level: 40,
+        exp: 90,
+        scale: 3.5,
+        position: [0, 1.5, 0],
+        rotationOffset: Math.PI,  // Harimau model menghadap ke arah lawan
     },
 ];

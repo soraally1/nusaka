@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import { ChevronLeft, ChevronRight, Home, MapPin, Mountain, Wind, History, Shield, Volume2, VolumeX } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Home, MapPin, Mountain, Wind, History, Shield, Volume2, VolumeX, Leaf } from 'lucide-react'
 import { useTransitionStore } from '../../store/transitionStore'
 import { auth } from '../../../lib/firebase'
 import { doc, updateDoc } from 'firebase/firestore'
@@ -279,7 +279,8 @@ export default function DongengElangPage() {
                                     }}
                                     className="px-3 py-1 text-[#606C38] hover:text-[#283618] font-semibold transition-colors text-sm"
                                 >
-                                    Skip ⏵
+                                    <ChevronRight size={16} />
+                                    Skip
                                 </button>
                             )}
 
@@ -330,10 +331,10 @@ export default function DongengElangPage() {
 
             {/* Corner Decorations */}
             <div className="absolute top-24 left-4 hidden xl:block z-20">
-                <div className="text-4xl opacity-20">⛰️</div>
+                <Mountain size={36} className="text-[#3B82F6] opacity-20" />
             </div>
             <div className="absolute bottom-36 right-4 hidden xl:block z-20">
-                <div className="text-4xl opacity-20">🦅</div>
+                <Wind size={36} className="text-[#F59E0B] opacity-20" />
             </div>
 
             <style jsx global>{`

@@ -1,33 +1,252 @@
-import React, { useState, useEffect } from 'react';
-import { Timer, Star, Award, ChevronRight, CheckCircle2, XCircle, RotateCcw, Save, Sparkles, AlertCircle } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Timer, Star, Award, ChevronRight, CheckCircle2, XCircle, RotateCcw, Sparkles, AlertCircle, Zap, Target, Brain } from 'lucide-react';
 import { useStoneStore } from '../stoneStore';
 import { useJoystickStore } from '../store';
 import { QUIZ_DATA, TOTAL_TIME, XP_PER_QUESTION, QUESTIONS_PER_ROUND } from './data';
 import { randomizeBatuPosition } from '../Planet';
+import { useBattleStore } from '../battleStore';
+import { useCreatureStore } from '../../nusadex/store';
+import { NUSA_CREATURES } from '../../nusadex/creatures';
+import dynamic from 'next/dynamic';
 
+const BossReveal = dynamic(() => import('./BossReveal'), { ssr: false });
+
+// ─────────────────────────────────────────────
+// 3D Stone component (pure CSS)
+// ─────────────────────────────────────────────
+function Stone3D({ onClick, isAnimating }: { onClick: () => void; isAnimating?: boolean }) {
+  const [hovered, setHovered] = useState(false);
+  const [rotX, setRotX] = useState(0);
+  const [rotY, setRotY] = useState(0);
+  const ref = useRef<HTMLDivElement>(null);
+
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    const rect = ref.current?.getBoundingClientRect();
+    if (!rect) return;
+    const cx = rect.left + rect.width / 2;
+    const cy = rect.top + rect.height / 2;
+    setRotX(((e.clientY - cy) / rect.height) * -30);
+    setRotY(((e.clientX - cx) / rect.width) * 30);
+  };
+
+  const handleMouseLeave = () => {
+    setHovered(false);
+    setRotX(0);
+    setRotY(0);
+  };
+
+  return (
+    <div
+      ref={ref}
+      onMouseMove={handleMouseMove}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={handleMouseLeave}
+      onClick={onClick}
+      className="cursor-pointer select-none"
+      style={{ perspective: '600px' }}
+    >
+      <div
+        style={{
+          transform: `rotateX(${rotX}deg) rotateY(${rotY}deg) ${hovered ? 'translateY(-8px) scale(1.05)' : 'translateY(0) scale(1)'}`,
+          transition: isAnimating ? 'none' : 'transform 0.15s ease-out',
+          transformStyle: 'preserve-3d',
+          animation: isAnimating ? 'none' : 'stoneBob 3s ease-in-out infinite',
+        }}
+      >
+        {/* Main stone body */}
+        <div
+          style={{
+            width: '160px',
+            height: '160px',
+            background: 'linear-gradient(145deg, #6B7280 0%, #374151 40%, #1F2937 100%)',
+            borderRadius: '40% 60% 55% 45% / 50% 45% 55% 50%',
+            border: '4px solid #111827',
+            boxShadow: hovered
+              ? '0 20px 40px rgba(0,0,0,0.6), inset 2px 2px 0 rgba(255,255,255,0.15), inset -2px -2px 0 rgba(0,0,0,0.3)'
+              : '8px 8px 0px #111827, 0 4px 20px rgba(0,0,0,0.4), inset 2px 2px 0 rgba(255,255,255,0.1)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            position: 'relative',
+            overflow: 'hidden',
+          }}
+        >
+          {/* Shine overlay */}
+          <div style={{
+            position: 'absolute',
+            top: '10%',
+            left: '15%',
+            width: '35%',
+            height: '30%',
+            background: 'radial-gradient(ellipse, rgba(255,255,255,0.25) 0%, transparent 100%)',
+            borderRadius: '50%',
+            transform: 'rotate(-30deg)',
+          }} />
+          {/* Rune marks */}
+          <div style={{ position: 'relative', zIndex: 1, textAlign: 'center' }}>
+            <div style={{ fontSize: '48px', lineHeight: 1 }}>🪨</div>
+            <div style={{
+              marginTop: '4px',
+              fontSize: '10px',
+              letterSpacing: '3px',
+              color: 'rgba(167,243,208,0.8)',
+              fontFamily: 'monospace',
+              textShadow: '0 0 8px rgba(167,243,208,0.6)',
+            }}>KUIS</div>
+          </div>
+          {/* Glowing particles */}
+          {hovered && [0,1,2].map(i => (
+            <div key={i} style={{
+              position: 'absolute',
+              width: '6px',
+              height: '6px',
+              borderRadius: '50%',
+              background: '#A7F3D0',
+              top: `${20 + i * 25}%`,
+              left: `${15 + i * 30}%`,
+              animation: `particle ${0.8 + i * 0.3}s ease-out infinite`,
+              boxShadow: '0 0 6px #A7F3D0',
+            }} />
+          ))}
+        </div>
+        {/* Bottom face for 3D illusion */}
+        <div style={{
+          width: '160px',
+          height: '12px',
+          background: '#111827',
+          borderRadius: '0 0 50% 50%',
+          marginTop: '-6px',
+          opacity: 0.5,
+          filter: 'blur(2px)',
+        }} />
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────
+// Answer Button 3D
+// ─────────────────────────────────────────────
+function AnswerButton({
+  alphabet, option, onClick, disabled, state
+}: {
+  alphabet: string;
+  option: string;
+  onClick: () => void;
+  disabled: boolean;
+  state: 'default' | 'correct' | 'wrong' | 'dimmed';
+}) {
+  const [pressed, setPressed] = useState(false);
+
+  const configs = {
+    default: {
+      bg: 'linear-gradient(180deg, #FFFDE8 0%, #FFF9E6 100%)',
+      border: '#374151',
+      shadow: '4px 4px 0 #374151',
+      textColor: '#374151',
+      badgeBg: '#FEF08A',
+    },
+    correct: {
+      bg: 'linear-gradient(180deg, #DCFCE7 0%, #A7F3D0 100%)',
+      border: '#374151',
+      shadow: '4px 4px 0 #374151',
+      textColor: '#065F46',
+      badgeBg: '#6EE7B7',
+    },
+    wrong: {
+      bg: 'linear-gradient(180deg, #FEE2E2 0%, #FECACA 100%)',
+      border: '#374151',
+      shadow: '4px 4px 0 #374151',
+      textColor: '#991B1B',
+      badgeBg: '#FCA5A5',
+    },
+    dimmed: {
+      bg: 'linear-gradient(180deg, #F3F4F6 0%, #E5E7EB 100%)',
+      border: '#9CA3AF',
+      shadow: '4px 4px 0 #9CA3AF',
+      textColor: '#9CA3AF',
+      badgeBg: '#D1D5DB',
+    },
+  };
+
+  const cfg = configs[state];
+
+  return (
+    <button
+      disabled={disabled}
+      onClick={() => { if (!disabled) { setPressed(true); onClick(); } }}
+      onMouseDown={() => setPressed(true)}
+      onMouseUp={() => setPressed(false)}
+      onMouseLeave={() => setPressed(false)}
+      style={{
+        background: cfg.bg,
+        border: `3px solid ${cfg.border}`,
+        boxShadow: pressed || state !== 'default' ? '1px 1px 0 ' + cfg.border : cfg.shadow,
+        transform: pressed || state === 'wrong' ? 'translate(3px, 3px)' : 'translate(0,0)',
+        transition: 'all 0.12s ease',
+        borderRadius: '16px',
+        padding: '14px 16px',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '12px',
+        cursor: disabled ? 'default' : 'pointer',
+        width: '100%',
+        textAlign: 'left',
+        animation: state === 'correct' ? 'correctPulse 0.4s ease-out' : state === 'wrong' ? 'wrongShake 0.4s ease-out' : 'none',
+      }}
+    >
+      <div style={{
+        width: '40px',
+        height: '40px',
+        borderRadius: '12px',
+        background: cfg.badgeBg,
+        border: `3px solid ${cfg.border}`,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        fontWeight: 900,
+        fontSize: '18px',
+        color: cfg.textColor,
+        flexShrink: 0,
+      }}>
+        {state === 'correct' ? <CheckCircle2 size={20} /> : state === 'wrong' ? <XCircle size={20} /> : alphabet}
+      </div>
+      <span style={{ fontWeight: 700, fontSize: '16px', color: cfg.textColor, flex: 1 }}>
+        {option}
+      </span>
+    </button>
+  );
+}
+
+// ─────────────────────────────────────────────
+// Main Component
+// ─────────────────────────────────────────────
 export default function BatuQuiz() {
   const { endMinigame, nearbyStoneId, triggerRespawn } = useStoneStore();
   const setMenuState = useJoystickStore(s => s.setMenuState);
+  const startBattle = useBattleStore(s => s.startBattle);
+  const { capturedCreatures, firstPartner } = useCreatureStore();
 
-  const [gameState, setGameState] = useState<'intro' | 'animating' | 'playing' | 'feedback' | 'finished' | 'timeout' | 'fading_out'>('intro');
+  const [gameState, setGameState] = useState<'intro' | 'animating' | 'playing' | 'feedback' | 'finished' | 'timeout' | 'boss_reveal' | 'fading_out'>('intro');
   const [activeQuestions, setActiveQuestions] = useState<typeof QUIZ_DATA>([]);
   const [currentQuestionIdx, setCurrentQuestionIdx] = useState(0);
   const [timeLeft, setTimeLeft] = useState(TOTAL_TIME);
   const [xp, setXp] = useState(0);
-  
   const [stats, setStats] = useState({ correct: 0, wrong: 0 });
   const [userAnswers, setUserAnswers] = useState<any[]>([]);
-  
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
   const [isCorrect, setIsCorrect] = useState<boolean | null>(null);
-  const [savedData, setSavedData] = useState<any>(null);
+  const [introMounted, setIntroMounted] = useState(false);
+
+  useEffect(() => {
+    const t = setTimeout(() => setIntroMounted(true), 50);
+    return () => clearTimeout(t);
+  }, []);
 
   useEffect(() => {
     let timer: NodeJS.Timeout;
     if (gameState === 'playing' && timeLeft > 0) {
-      timer = setInterval(() => {
-        setTimeLeft((prev) => prev - 1);
-      }, 1000);
+      timer = setInterval(() => setTimeLeft(p => p - 1), 1000);
     } else if (gameState === 'playing' && timeLeft === 0) {
       setGameState('timeout');
     }
@@ -36,9 +255,7 @@ export default function BatuQuiz() {
 
   const handleStoneClick = () => {
     setGameState('animating');
-    setTimeout(() => {
-      startQuiz();
-    }, 1500);
+    setTimeout(() => startQuiz(), 1200);
   };
 
   const startQuiz = () => {
@@ -49,33 +266,23 @@ export default function BatuQuiz() {
     setXp(0);
     setStats({ correct: 0, wrong: 0 });
     setUserAnswers([]);
-    setSavedData(null);
     setGameState('playing');
   };
 
   const handleAnswerClick = (option: string) => {
     if (gameState !== 'playing' || activeQuestions.length === 0) return;
-
     const question = activeQuestions[currentQuestionIdx];
     const correct = option === question.correctAnswer;
-    
     setSelectedOption(option);
     setIsCorrect(correct);
     setGameState('feedback');
-
     if (correct) {
       setXp(prev => prev + XP_PER_QUESTION);
       setStats(prev => ({ ...prev, correct: prev.correct + 1 }));
     } else {
       setStats(prev => ({ ...prev, wrong: prev.wrong + 1 }));
     }
-
-    setUserAnswers(prev => [...prev, {
-      questionId: question.id,
-      selected: option,
-      isCorrect: correct
-    }]);
-
+    setUserAnswers(prev => [...prev, { questionId: question.id, selected: option, isCorrect: correct }]);
     setTimeout(() => {
       if (currentQuestionIdx < QUESTIONS_PER_ROUND - 1) {
         setCurrentQuestionIdx(prev => prev + 1);
@@ -83,56 +290,173 @@ export default function BatuQuiz() {
         setIsCorrect(null);
         setGameState('playing');
       } else {
-        setGameState('finished');
+        // Trigger boss reveal after last question!
+        setGameState('boss_reveal');
       }
-    }, 3000);
+    }, 2800);
   };
 
-  const quitMinigame = () => {
-    endMinigame();
-    setMenuState('playing');
-  };
+  const quitMinigame = () => { endMinigame(); setMenuState('playing'); };
 
   const finishAndRespawn = () => {
     setGameState('fading_out');
     setTimeout(() => {
-        if (nearbyStoneId !== null) {
-          randomizeBatuPosition(nearbyStoneId);
-          triggerRespawn();
-        }
-        quitMinigame();
-    }, 1000);
+      if (nearbyStoneId !== null) { randomizeBatuPosition(nearbyStoneId); triggerRespawn(); }
+      quitMinigame();
+    }, 800);
   };
 
+  // ── Boss Fight Handlers ──
+  const handleBossFight = () => {
+    const harimau = NUSA_CREATURES.find(c => c.id === 5);
+    if (!harimau) return;
+
+    // Pick the player's best creature
+    const playerPartner = firstPartner ||
+      (capturedCreatures.length > 0 ? capturedCreatures[0] : null);
+
+    if (!playerPartner) {
+      // No partner — just finish normally
+      finishAndRespawn();
+      return;
+    }
+
+    // Start battle data FIRST, then switch menu state
+    // This ensures BattleUI has data when it mounts
+    startBattle(harimau, playerPartner);
+    endMinigame(); // clears stone state
+    setMenuState('battle'); // BattleUI mounts, BatuQuiz unmounts
+  };
+
+  const handleBossFlee = () => {
+    finishAndRespawn();
+  };
+
+  // ── Screens ─────────────────────────────────
+
   const renderAnimating = () => (
-    <div className="flex flex-col items-center justify-center h-full w-full bg-stone-950 z-100 animate-entrance-zoom pointer-events-auto">
-       <img src="/Nusaka.svg" alt="Nusaka Logo" className="w-32 h-32 animate-pulse" />
+    <div style={{
+      position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column',
+      alignItems: 'center', justifyContent: 'center',
+      background: '#FFF9E6', zIndex: 10,
+      animation: 'zoomIn 1.2s cubic-bezier(0.22,1,0.36,1) forwards',
+    }}>
+      <div style={{ animation: 'spinScale 1.2s ease-in-out forwards' }}>
+        <div style={{
+          width: 80, height: 80, borderRadius: '50%',
+          background: '#374151', border: '4px solid #111827',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          boxShadow: '4px 4px 0 #111827',
+        }}>
+          <Sparkles size={40} color="#FEF08A" strokeWidth={2.5} />
+        </div>
+      </div>
+      <div style={{ marginTop: '16px', fontWeight: 900, fontSize: '24px', color: '#374151', letterSpacing: '4px' }}>
+        MEMUAT...
+      </div>
     </div>
   );
 
-  // 1. Layar Intro
   const renderIntro = () => (
-    <div className="flex flex-col items-center justify-center h-full text-stone-100 p-6 pointer-events-auto">
-      <div className="max-w-md w-full bg-stone-800 rounded-3xl p-8 border-2 border-stone-700 shadow-2xl relative overflow-hidden backdrop-blur-md">
-        <div className="text-center mb-8 relative z-10 flex flex-col items-center">
-          <div className="w-20 h-20 mb-4 bg-stone-700 rounded-full flex items-center justify-center border-4 border-stone-600 shadow-inner">
-            <Sparkles className="w-10 h-10 text-emerald-400" />
-          </div>
-          <h2 className="text-2xl font-bold text-stone-200 mb-2 uppercase tracking-widest font-serif">Batu Quiz</h2>
-          <p className="text-stone-400 text-sm leading-relaxed max-w-sm mt-4 italic">"Batu ini menyimpan banyak pertanyaan berharga dari kehidupan ini."</p>
-          <p className="text-stone-300 text-sm leading-relaxed max-w-sm mt-2 font-medium">Kamu akan menjawab {QUESTIONS_PER_ROUND} pertanyaan dari Batu quiz selama 1 menit.</p>
+    <div style={{
+      position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
+      padding: '24px', pointerEvents: 'auto',
+      opacity: introMounted ? 1 : 0,
+      transform: introMounted ? 'translateY(0)' : 'translateY(20px)',
+      transition: 'opacity 0.5s ease, transform 0.5s ease',
+    }}>
+      <div style={{
+        maxWidth: '420px', width: '100%',
+        background: '#FFF9E6',
+        border: '4px solid #374151',
+        borderRadius: '32px',
+        boxShadow: '8px 8px 0 #374151',
+        padding: '32px 28px',
+        position: 'relative',
+        overflow: 'hidden',
+      }}>
+        {/* Top badge */}
+        <div style={{
+          position: 'absolute', top: '-2px', left: '50%', transform: 'translateX(-50%)',
+          background: '#FEF08A', border: '4px solid #374151', borderTop: 'none',
+          borderRadius: '0 0 16px 16px',
+          padding: '4px 20px',
+          fontWeight: 900, fontSize: '13px', color: '#374151', letterSpacing: '3px',
+          boxShadow: '0 4px 0 #374151',
+        }}>
+          BATU KUNO
         </div>
 
-        <div className="flex flex-col gap-3 relative z-10 w-full mt-8">
-          <button 
+        <div style={{ textAlign: 'center', paddingTop: '24px' }}>
+          {/* 3D Stone */}
+          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '24px' }}>
+            <Stone3D onClick={handleStoneClick} />
+          </div>
+
+          <h2 style={{ fontSize: '40px', fontWeight: 900, color: '#374151', margin: '0 0 8px', letterSpacing: '-1px' }}>
+            Batu Quiz
+          </h2>
+          <p style={{ color: '#6B7280', fontStyle: 'italic', fontSize: '14px', margin: '0 0 4px' }}>
+            "Batu ini menyimpan rahasia alam Nusantara."
+          </p>
+          <p style={{ color: '#374151', fontSize: '14px', fontWeight: 700, margin: '0 0 24px' }}>
+            Jawab <span style={{ color: '#D97706', background: '#FEF08A', padding: '0 6px', borderRadius: '6px', border: '2px solid #374151' }}>{QUESTIONS_PER_ROUND} soal</span> dalam{' '}
+            <span style={{ color: '#059669', background: '#A7F3D0', padding: '0 6px', borderRadius: '6px', border: '2px solid #374151' }}>60 detik</span>
+          </p>
+
+          {/* Stats row */}
+          <div style={{ display: 'flex', gap: '12px', marginBottom: '24px' }}>
+            {[
+              { icon: <Brain size={18} />, label: '20 Soal', bg: '#BFDBFE' },
+              { icon: <Zap size={18} />, label: '+10 XP/soal', bg: '#FEF08A' },
+              { icon: <Target size={18} />, label: '60 Detik', bg: '#A7F3D0' },
+            ].map((item, i) => (
+              <div key={i} style={{
+                flex: 1, background: item.bg, border: '3px solid #374151',
+                borderRadius: '14px', padding: '10px 6px',
+                display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px',
+                boxShadow: '3px 3px 0 #374151', color: '#374151', fontWeight: 800, fontSize: '12px',
+              }}>
+                {item.icon}
+                {item.label}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          <button
             onClick={handleStoneClick}
-            className="w-full py-4 rounded-xl cursor-pointer bg-linear-to-b from-stone-600 to-stone-800 hover:from-stone-500 hover:to-stone-700 border-2 border-stone-500 text-stone-200 font-bold text-lg transition-all transform hover:scale-[1.02] active:scale-[0.98] shadow-lg"
+            style={{
+              width: '100%', padding: '16px',
+              background: 'linear-gradient(180deg, #374151 0%, #1F2937 100%)',
+              border: '4px solid #111827',
+              borderRadius: '16px',
+              boxShadow: '4px 4px 0 #111827',
+              color: '#FFF9E6', fontWeight: 900, fontSize: '18px',
+              cursor: 'pointer', letterSpacing: '1px',
+              transition: 'transform 0.1s ease, box-shadow 0.1s ease',
+            }}
+            onMouseDown={e => { (e.currentTarget as HTMLButtonElement).style.transform = 'translate(4px,4px)'; (e.currentTarget as HTMLButtonElement).style.boxShadow = '0px 0px 0 #111827'; }}
+            onMouseUp={e => { (e.currentTarget as HTMLButtonElement).style.transform = ''; (e.currentTarget as HTMLButtonElement).style.boxShadow = '4px 4px 0 #111827'; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.transform = ''; (e.currentTarget as HTMLButtonElement).style.boxShadow = '4px 4px 0 #111827'; }}
           >
+            <Sparkles size={20} strokeWidth={2.5} style={{ display: 'inline', marginRight: 8, verticalAlign: 'middle' }} />
             Eksplor Batu
           </button>
-          <button 
+          <button
             onClick={quitMinigame}
-            className="w-full py-4 rounded-xl cursor-pointer bg-transparent hover:bg-stone-800 border-2 border-stone-700 text-stone-400 hover:text-stone-200 font-bold text-lg transition-all"
+            style={{
+              width: '100%', padding: '14px',
+              background: 'transparent',
+              border: '3px solid #374151',
+              borderRadius: '16px',
+              color: '#374151', fontWeight: 800, fontSize: '16px',
+              cursor: 'pointer',
+              transition: 'background 0.2s ease',
+            }}
+            onMouseEnter={e => (e.currentTarget as HTMLButtonElement).style.background = '#F3F4F6'}
+            onMouseLeave={e => (e.currentTarget as HTMLButtonElement).style.background = 'transparent'}
           >
             Tinggalkan
           </button>
@@ -141,195 +465,294 @@ export default function BatuQuiz() {
     </div>
   );
 
-  // 2. Layar Quiz
   const renderQuiz = () => {
     if (activeQuestions.length === 0) return null;
     const question = activeQuestions[currentQuestionIdx];
     const isFeedback = gameState === 'feedback';
+    const timerPct = (timeLeft / TOTAL_TIME) * 100;
+    const timerColor = timeLeft <= 10 ? '#EF4444' : timeLeft <= 20 ? '#F59E0B' : '#059669';
+    const progressPct = ((currentQuestionIdx) / QUESTIONS_PER_ROUND) * 100;
 
     return (
-      <div className="flex flex-col h-full text-stone-100 p-4 md:p-8 pointer-events-auto w-full max-w-4xl mx-auto overflow-y-auto">
-        <div className="min-h-full flex flex-col py-4 md:py-0">
-          <header className="flex justify-between items-center w-full mb-8 bg-stone-900/90 backdrop-blur-md p-4 rounded-2xl border border-stone-800 shadow-xl shrink-0">
-          <div className="flex flex-col">
-            <span className="text-xs text-stone-400 uppercase tracking-wider font-bold mb-1">Progress</span>
-            <span className="font-bold text-emerald-400 text-lg">Soal {currentQuestionIdx + 1} <span className="text-stone-500">/ {QUESTIONS_PER_ROUND}</span></span>
-          </div>
-          
-          <div className={`flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-lg
-            ${timeLeft <= 10 ? 'bg-red-900/50 text-red-400 animate-pulse' : 'bg-stone-800 text-amber-400'}`}>
-            <Timer size={20} />
-            {timeLeft}s
+      <div style={{
+        position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column',
+        padding: '16px', pointerEvents: 'auto', overflowY: 'auto',
+      }}>
+        <div style={{ maxWidth: '680px', width: '100%', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '12px', minHeight: '100%' }}>
+
+          {/* Header */}
+          <div style={{
+            background: '#FFF9E6', border: '4px solid #374151', borderRadius: '20px',
+            boxShadow: '4px 4px 0 #374151', padding: '12px 16px',
+            display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0,
+          }}>
+            {/* Progress */}
+            <div style={{ flex: 1 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
+                <span style={{ fontWeight: 900, fontSize: '13px', color: '#374151' }}>SOAL {currentQuestionIdx + 1}/{QUESTIONS_PER_ROUND}</span>
+                <span style={{ fontWeight: 700, fontSize: '13px', color: '#6B7280' }}>{Math.round(progressPct)}%</span>
+              </div>
+              <div style={{ height: '8px', background: '#E5E7EB', border: '2px solid #374151', borderRadius: '999px', overflow: 'hidden' }}>
+                <div style={{
+                  height: '100%', width: `${progressPct}%`,
+                  background: 'linear-gradient(90deg, #A7F3D0, #059669)',
+                  borderRadius: '999px', transition: 'width 0.4s ease',
+                }} />
+              </div>
+            </div>
+            {/* Timer */}
+            <div style={{
+              flexShrink: 0, width: '64px', height: '64px',
+              border: `4px solid ${timerColor}`,
+              borderRadius: '50%', display: 'flex', flexDirection: 'column',
+              alignItems: 'center', justifyContent: 'center',
+              background: timeLeft <= 10 ? 'rgba(239,68,68,0.1)' : '#fff',
+              boxShadow: `0 0 0 3px ${timerColor}33`,
+              animation: timeLeft <= 10 ? 'timerPulse 1s ease-in-out infinite' : 'none',
+              position: 'relative',
+            }}>
+              <span style={{ fontWeight: 900, fontSize: '20px', color: timerColor, lineHeight: 1 }}>{timeLeft}</span>
+              <span style={{ fontSize: '9px', fontWeight: 700, color: timerColor, opacity: 0.7 }}>DETIK</span>
+            </div>
+            {/* XP */}
+            <div style={{
+              background: '#FEF08A', border: '3px solid #374151', borderRadius: '14px',
+              padding: '8px 12px', textAlign: 'center', boxShadow: '3px 3px 0 #374151',
+              flexShrink: 0,
+            }}>
+              <div style={{ fontWeight: 900, fontSize: '18px', color: '#374151' }}>{xp}</div>
+              <div style={{ fontWeight: 700, fontSize: '11px', color: '#92400E' }}>XP</div>
+            </div>
           </div>
 
-          <div className="flex flex-col items-end">
-            <span className="text-xs text-stone-400 uppercase tracking-wider font-bold mb-1">Reward</span>
-            <span className="font-bold text-yellow-400 flex items-center gap-1">
-              <Star size={16} fill="currentColor" /> {xp} XP
-            </span>
+          {/* Question Card */}
+          <div style={{
+            background: 'linear-gradient(135deg, #374151 0%, #1F2937 100%)',
+            border: '4px solid #111827', borderRadius: '24px',
+            boxShadow: '6px 6px 0 #111827',
+            padding: '24px', position: 'relative', overflow: 'hidden', flexShrink: 0,
+          }}>
+            {/* Decorative dot grid */}
+            <div style={{
+              position: 'absolute', inset: 0, opacity: 0.05,
+              backgroundImage: 'radial-gradient(#fff 1px, transparent 1px)',
+              backgroundSize: '16px 16px', pointerEvents: 'none',
+            }} />
+            <div style={{
+              display: 'flex', alignItems: 'flex-start', gap: '12px', position: 'relative',
+            }}>
+              <div style={{
+                background: '#FEF08A', border: '3px solid #FFF9E6', borderRadius: '12px',
+                padding: '8px 12px', fontWeight: 900, fontSize: '14px', color: '#374151',
+                flexShrink: 0, letterSpacing: '1px',
+              }}>
+                Q{currentQuestionIdx + 1}
+              </div>
+              <h2 style={{
+                fontSize: 'clamp(16px, 3vw, 22px)', fontWeight: 800, color: '#FFF9E6',
+                lineHeight: 1.4, margin: 0,
+              }}>
+                {question.question}
+              </h2>
+            </div>
           </div>
-        </header>
 
-        <div className="w-full h-2 bg-stone-800 rounded-full mb-8 overflow-hidden">
-          <div 
-            className="h-full bg-emerald-500 transition-all duration-500"
-            style={{ width: `${((currentQuestionIdx) / QUESTIONS_PER_ROUND) * 100}%` }}
-          ></div>
-        </div>
-
-        <main className="w-full flex-1 flex flex-col justify-center">
-          <div className="bg-stone-800/90 backdrop-blur-md p-6 md:p-8 rounded-3xl border border-stone-700 shadow-xl mb-8">
-            <h2 className="text-2xl md:text-3xl font-bold leading-relaxed text-center">
-              {question.question}
-            </h2>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Options */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', flexShrink: 0 }}>
             {question.options.map((option, idx) => {
               const alphabet = ['A', 'B', 'C', 'D'][idx];
-              let buttonStyle = "from-stone-700 to-stone-800 border-stone-600 hover:from-stone-600 hover:to-stone-700 text-stone-200";
-              let statusIcon = null;
-
+              let state: 'default' | 'correct' | 'wrong' | 'dimmed' = 'default';
               if (isFeedback) {
-                if (option === question.correctAnswer) {
-                  buttonStyle = "from-emerald-700 to-emerald-900 border-emerald-500 text-emerald-100 shadow-[0_0_20px_rgba(16,185,129,0.4)]";
-                  statusIcon = <CheckCircle2 className="text-emerald-400 absolute right-4" />;
-                } else if (option === selectedOption) {
-                  buttonStyle = "from-red-900 to-red-950 border-red-700 text-red-200 animate-stone-crack opacity-80";
-                  statusIcon = <XCircle className="text-red-400 absolute right-4" />;
-                } else {
-                  buttonStyle = "from-stone-800 to-stone-900 border-stone-800 opacity-50 text-stone-500";
-                }
+                if (option === question.correctAnswer) state = 'correct';
+                else if (option === selectedOption) state = 'wrong';
+                else state = 'dimmed';
               }
-
               return (
-                <button
+                <AnswerButton
                   key={idx}
-                  disabled={isFeedback}
+                  alphabet={alphabet}
+                  option={option}
                   onClick={() => handleAnswerClick(option)}
-                  className={`relative flex items-center p-4 rounded-2xl cursor-pointer bg-linear-to-b border-b-4 border-2 transition-all duration-200 
-                    ${!isFeedback ? 'active:border-b-0 active:translate-y-[4px]' : ''} 
-                    ${buttonStyle} shadow-lg`}
-                >
-                  <div className="w-10 h-10 rounded-full bg-stone-900/50 flex items-center justify-center font-bold text-lg mr-4 border border-stone-600/50">
-                    {alphabet}
-                  </div>
-                  <span className="font-semibold text-lg text-left pr-8">{option}</span>
-                  {statusIcon}
-                </button>
+                  disabled={isFeedback}
+                  state={state}
+                />
               );
             })}
           </div>
 
+          {/* Feedback Card */}
           {isFeedback && (
-            <div className={`mt-8 p-6 rounded-2xl border hidden md:block ${isCorrect ? 'bg-emerald-900/80 border-emerald-500/50' : 'bg-red-900/80 border-red-500/50'} backdrop-blur-md animate-fade-in`}>
-              <div className="flex items-center gap-3 mb-2">
-                {isCorrect ? (
-                  <h3 className="text-xl font-bold text-emerald-400 flex items-center gap-2">
-                    <Sparkles className="w-6 h-6 text-emerald-400" /> Benar! <span className="text-sm bg-emerald-500/20 px-2 py-1 rounded text-emerald-300 ml-2">+10 XP</span>
+            <div style={{
+              background: isCorrect ? '#DCFCE7' : '#FEE2E2',
+              border: `4px solid ${isCorrect ? '#059669' : '#DC2626'}`,
+              borderRadius: '20px',
+              boxShadow: `6px 6px 0 ${isCorrect ? '#059669' : '#DC2626'}`,
+              padding: '20px',
+              animation: 'feedbackSlideIn 0.3s cubic-bezier(0.34,1.56,0.64,1)',
+              flexShrink: 0,
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
+                <div style={{
+                  background: isCorrect ? '#059669' : '#DC2626',
+                  borderRadius: '50%', padding: '6px',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}>
+                  {isCorrect
+                    ? <CheckCircle2 size={20} color="white" />
+                    : <XCircle size={20} color="white" />
+                  }
+                </div>
+                <div>
+                  <h3 style={{
+                    fontWeight: 900, fontSize: '18px', margin: 0,
+                    color: isCorrect ? '#065F46' : '#991B1B',
+                  }}>
+                    {isCorrect ? 'Luar Biasa! +10 XP' : 'Kurang Tepat'}
                   </h3>
-                ) : (
-                  <h3 className="text-xl font-bold text-red-400 flex items-center gap-2">
-                    <AlertCircle className="w-6 h-6 text-red-400" /> Salah!
-                  </h3>
-                )}
+                  {!isCorrect && (
+                    <p style={{ margin: '2px 0 0', fontSize: '13px', fontWeight: 700, color: '#059669' }}>
+                      Jawaban: {question.correctAnswer}
+                    </p>
+                  )}
+                </div>
               </div>
-              <p className="text-stone-300 leading-relaxed mt-2">
-                {!isCorrect && <span className="block text-emerald-400 font-semibold mb-1">Jawaban yang benar: {question.correctAnswer}</span>}
+              <p style={{ margin: 0, fontSize: '14px', color: isCorrect ? '#065F46' : '#991B1B', lineHeight: 1.5 }}>
                 {question.explanation}
               </p>
-              <div className="mt-4 flex justify-end">
-                <span className="text-stone-500 text-sm flex items-center gap-1 animate-pulse">
-                  Menuju soal berikutnya <ChevronRight size={16} />
-                </span>
+              <div style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'flex-end',
+                gap: '4px', marginTop: '12px',
+                fontSize: '12px', fontWeight: 700, color: '#6B7280',
+                animation: 'pulse 1s ease-in-out infinite',
+              }}>
+                Menuju soal berikutnya <ChevronRight size={14} />
               </div>
             </div>
           )}
-
-          {/* Mobile Feedback Popup */}
-          {isFeedback && (
-            <div className="fixed inset-0 z-100 flex items-center justify-center p-6 md:hidden">
-              <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" />
-              <div className={`relative w-full max-w-sm p-6 rounded-3xl border-2 animate-stone-crack ${isCorrect ? 'bg-emerald-950 border-emerald-500 shadow-[0_0_30px_rgba(16,185,129,0.3)]' : 'bg-red-950 border-red-500 shadow-[0_0_30px_rgba(239,68,68,0.3)]'}`}>
-                 <div className="flex flex-col items-center text-center">
-                    <div className={`w-16 h-16 rounded-full flex items-center justify-center mb-4 ${isCorrect ? 'bg-emerald-500/20' : 'bg-red-500/20'}`}>
-                       {isCorrect ? <CheckCircle2 className="w-10 h-10 text-emerald-400" /> : <XCircle className="w-10 h-10 text-red-400" />}
-                    </div>
-                    <h3 className={`text-2xl font-black mb-2 uppercase tracking-widest ${isCorrect ? 'text-emerald-400' : 'text-red-400'}`}>
-                      {isCorrect ? 'Luar Biasa!' : 'Kurang Tepat!'}
-                    </h3>
-                    <p className="text-stone-300 leading-relaxed text-sm">
-                      {!isCorrect && <span className="block text-emerald-400 font-bold mb-2">Jawaban: {question.correctAnswer}</span>}
-                      {question.explanation}
-                    </p>
-                    <div className="mt-6 flex items-center gap-2 text-stone-500 text-xs font-bold uppercase tracking-tighter animate-pulse">
-                       Menuju Soal Berikutnya <ChevronRight size={14} />
-                    </div>
-                 </div>
-              </div>
-            </div>
-          )}
-        </main>
         </div>
       </div>
     );
   };
 
-  // 3. Layar Hasil
   const renderResult = () => {
     const isTimeout = gameState === 'timeout';
-    const finalCorrect = stats.correct + (gameState === 'playing' && isCorrect ? 1 : 0);
-    const finalWrong = stats.wrong + (gameState === 'playing' && !isCorrect ? 1 : 0);
-    const finalXp = xp + (gameState === 'playing' && isCorrect ? XP_PER_QUESTION : 0);
+    const accuracy = QUESTIONS_PER_ROUND > 0 ? Math.round((stats.correct / QUESTIONS_PER_ROUND) * 100) : 0;
+    const grade = accuracy >= 80 ? { label: 'Luar Biasa!', color: '#059669', bg: '#A7F3D0', Icon: Award }
+      : accuracy >= 60 ? { label: 'Bagus!', color: '#D97706', bg: '#FEF08A', Icon: Star }
+      : { label: 'Terus Belajar!', color: '#DC2626', bg: '#FCA5A5', Icon: Zap };
 
     return (
-      <div className="flex flex-col items-center justify-center h-full text-stone-100 p-6 pointer-events-auto">
-        <div className="max-w-md w-full bg-stone-800 rounded-3xl p-8 border-2 border-stone-700 shadow-2xl relative backdrop-blur-md">
-          
-          <div className="text-center mb-8">
+      <div style={{
+        position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
+        padding: '24px', pointerEvents: 'auto',
+      }}>
+        <div style={{
+          maxWidth: '420px', width: '100%',
+          background: '#FFF9E6', border: '4px solid #374151',
+          borderRadius: '32px', boxShadow: '8px 8px 0 #374151',
+          padding: '32px 28px',
+          animation: 'resultPop 0.5s cubic-bezier(0.34,1.56,0.64,1)',
+        }}>
+          {/* Icon */}
+          <div style={{ textAlign: 'center', marginBottom: '20px' }}>
             {isTimeout ? (
               <>
-                <div className="mx-auto inline-flex items-center justify-center w-20 h-20 rounded-full bg-red-900/10 mb-4 animate-pulse">
-                  <Timer size={40} className="text-red-500" />
+                <div style={{ animation: 'shake 0.5s ease-out', display: 'flex', justifyContent: 'center', marginBottom: 8 }}>
+                  <Timer size={64} color="#DC2626" strokeWidth={2} />
                 </div>
-                <h2 className="text-2xl font-bold text-red-400 mb-2 uppercase tracking-widest font-serif">Waktu Habis!</h2>
-                <p className="text-stone-400 italic">"Sayang sekali, kamu kehabisan waktu."</p>
+                <h2 style={{ fontWeight: 900, fontSize: '32px', color: '#DC2626', margin: '8px 0 4px' }}>Waktu Habis!</h2>
+                <p style={{ color: '#6B7280', fontStyle: 'italic', margin: 0 }}>Kamu kehabisan waktu.</p>
               </>
             ) : (
               <>
-                <div className="mx-auto inline-flex items-center justify-center w-24 h-24 rounded-full bg-stone-700 mb-4 relative border-4 border-stone-600 shadow-inner">
-                  <Award className="text-yellow-400 w-12 h-12 absolute" />
-                  <div className="absolute inset-0 border-4 border-emerald-500 rounded-full animate-ping opacity-20"></div>
+                <div style={{
+                  display: 'inline-flex',
+                  background: grade.bg, border: '4px solid #374151',
+                  borderRadius: '999px', padding: '16px 24px',
+                  boxShadow: '4px 4px 0 #374151', marginBottom: '12px',
+                  alignItems: 'center', justifyContent: 'center',
+                }}>
+                  <grade.Icon size={48} color={grade.color} strokeWidth={2} />
                 </div>
-                <p className="text-stone-300 text-lg leading-relaxed max-w-sm mt-4 italic font-serif">
-                  "Selamat kamu berhasil melewati pertanyaan dari Batu Quiz"
+                <h2 style={{ fontWeight: 900, fontSize: '32px', color: '#374151', margin: '8px 0 4px' }}>
+                  {grade.label}
+                </h2>
+                <p style={{ color: '#6B7280', fontStyle: 'italic', margin: 0, fontSize: '14px' }}>
+                  "Kamu telah menjelajahi Batu Quiz!"
                 </p>
               </>
             )}
           </div>
 
-          <div className="bg-stone-900/50 rounded-2xl p-6 mb-8 border border-stone-700">
-            <h3 className="text-xs font-bold text-stone-500 uppercase tracking-widest mb-4 text-center">Hasil Penjelajahan</h3>
-            <div className="flex justify-between items-center py-3 border-b border-stone-700">
-              <span className="text-stone-400">Total EXP</span>
-              <span className="font-bold text-yellow-400 flex items-center gap-1"><Star size={16} /> +{finalXp}</span>
-            </div>
-            <div className="flex justify-between items-center py-3 border-b border-stone-700">
-              <span className="text-emerald-400">Benar</span>
-              <span className="font-bold text-emerald-400">{finalCorrect}</span>
-            </div>
-            <div className="flex justify-between items-center py-3">
-              <span className="text-red-400">Salah</span>
-              <span className="font-bold text-red-400">{finalWrong}</span>
-            </div>
+          {/* Stats Grid */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px', marginBottom: '20px' }}>
+            {[
+              { label: 'EXP', value: `+${xp}`, bg: '#FEF08A', Icon: Star },
+              { label: 'Benar', value: stats.correct, bg: '#A7F3D0', Icon: CheckCircle2 },
+              { label: 'Salah', value: stats.wrong, bg: '#FCA5A5', Icon: XCircle },
+            ].map((s, i) => (
+              <div key={i} style={{
+                background: s.bg, border: '3px solid #374151',
+                borderRadius: '16px', padding: '12px 8px',
+                textAlign: 'center', boxShadow: '3px 3px 0 #374151',
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '4px' }}><s.Icon size={20} color="#374151" strokeWidth={2.5} /></div>
+                <div style={{ fontWeight: 900, fontSize: '22px', color: '#374151' }}>{s.value}</div>
+                <div style={{ fontWeight: 700, fontSize: '11px', color: '#374151', opacity: 0.7 }}>{s.label}</div>
+              </div>
+            ))}
           </div>
 
-          <div className="flex flex-col gap-3">
-            <button 
+          {/* Accuracy bar */}
+          {!isTimeout && (
+            <div style={{ marginBottom: '20px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
+                <span style={{ fontWeight: 700, fontSize: '13px', color: '#374151' }}>Akurasi</span>
+                <span style={{ fontWeight: 900, fontSize: '13px', color: '#374151' }}>{accuracy}%</span>
+              </div>
+              <div style={{ height: '12px', background: '#E5E7EB', border: '3px solid #374151', borderRadius: '999px', overflow: 'hidden' }}>
+                <div style={{
+                  height: '100%', width: `${accuracy}%`,
+                  background: accuracy >= 80 ? '#059669' : accuracy >= 60 ? '#D97706' : '#DC2626',
+                  borderRadius: '999px', transition: 'width 1s ease',
+                }} />
+              </div>
+            </div>
+          )}
+
+          {/* Actions */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            <button
               onClick={finishAndRespawn}
-              className="w-full py-4 rounded-xl cursor-pointer bg-linear-to-b from-stone-600 to-stone-800 hover:from-stone-500 hover:to-stone-700 border-2 border-stone-500 text-stone-200 font-bold text-lg transition-all shadow-lg"
+              style={{
+                width: '100%', padding: '16px',
+                background: 'linear-gradient(180deg, #374151 0%, #1F2937 100%)',
+                border: '4px solid #111827', borderRadius: '16px',
+                boxShadow: '4px 4px 0 #111827',
+                color: '#FFF9E6', fontWeight: 900, fontSize: '18px',
+                cursor: 'pointer', letterSpacing: '1px',
+              }}
+              onMouseDown={e => { (e.currentTarget as HTMLButtonElement).style.transform = 'translate(4px,4px)'; (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 0 0 #111827'; }}
+              onMouseUp={e => { (e.currentTarget as HTMLButtonElement).style.transform = ''; (e.currentTarget as HTMLButtonElement).style.boxShadow = '4px 4px 0 #111827'; }}
+              onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.transform = ''; (e.currentTarget as HTMLButtonElement).style.boxShadow = '4px 4px 0 #111827'; }}
             >
-              Selesaikan
+              Selesaikan Penjelajahan
+            </button>
+            <button
+              onClick={startQuiz}
+              style={{
+                width: '100%', padding: '14px',
+                background: '#A7F3D0', border: '3px solid #374151',
+                borderRadius: '16px', boxShadow: '3px 3px 0 #374151',
+                color: '#374151', fontWeight: 800, fontSize: '15px',
+                cursor: 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+              }}
+              onMouseDown={e => { (e.currentTarget as HTMLButtonElement).style.transform = 'translate(3px,3px)'; (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 0 0 #374151'; }}
+              onMouseUp={e => { (e.currentTarget as HTMLButtonElement).style.transform = ''; (e.currentTarget as HTMLButtonElement).style.boxShadow = '3px 3px 0 #374151'; }}
+              onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.transform = ''; (e.currentTarget as HTMLButtonElement).style.boxShadow = '3px 3px 0 #374151'; }}
+            >
+              <RotateCcw size={16} strokeWidth={2.5} /> Coba Lagi
             </button>
           </div>
         </div>
@@ -337,41 +760,94 @@ export default function BatuQuiz() {
     );
   };
 
-  const isDarkBg = gameState !== 'intro' && gameState !== 'fading_out';
-
+  // ── Root ────────────────────────────────────
   return (
-    <div className={`absolute inset-0 z-50 transition-colors duration-1000 ${isDarkBg ? 'bg-[#0c0a09]' : 'bg-black/40 backdrop-blur-sm'} pointer-events-none`}>
-      <style dangerouslySetInnerHTML={{__html: `
-        @keyframes stone-crack {
-          0% { transform: translateX(0); }
-          20% { transform: translateX(-3px) scale(0.98); }
-          40% { transform: translateX(3px) scale(0.98); }
-          60% { transform: translateX(-3px) scale(0.98); }
-          80% { transform: translateX(3px) scale(0.98); }
-          100% { transform: translateX(0) scale(1); background-image: linear-gradient(to right, transparent 48%, rgba(0,0,0,0.5) 49%, rgba(0,0,0,0.5) 51%, transparent 52%); }
+    <div style={{ position: 'absolute', inset: 0, zIndex: 50, pointerEvents: 'none' }}>
+      <style dangerouslySetInnerHTML={{ __html: `
+        @keyframes stoneBob {
+          0%, 100% { transform: translateY(0px) rotate(-1deg); }
+          50% { transform: translateY(-10px) rotate(1deg); }
         }
-        .animate-stone-crack { animation: stone-crack 0.4s ease-out forwards; }
-        .animate-fade-in { animation: fadeIn 0.4s ease-out forwards; }
-        @keyframes entrance-zoom {
-          0% { transform: scale(1); opacity: 0; background-color: transparent; }
-          40% { opacity: 1; background-color: rgba(28,25,23,0.9); }
-          100% { transform: scale(5); opacity: 1; background-color: #0c0a09; }
+        @keyframes particle {
+          0% { transform: translateY(0) scale(1); opacity: 1; }
+          100% { transform: translateY(-20px) scale(0); opacity: 0; }
         }
-        @keyframes fade-out {
+        @keyframes zoomIn {
+          0% { transform: scale(0.8); opacity: 0; }
+          60% { transform: scale(1.05); opacity: 1; }
+          100% { transform: scale(1); opacity: 1; }
+        }
+        @keyframes spinScale {
+          0% { transform: scale(0) rotate(-180deg); }
+          70% { transform: scale(1.2) rotate(10deg); }
+          100% { transform: scale(1) rotate(0deg); }
+        }
+        @keyframes correctPulse {
+          0% { transform: scale(1); }
+          30% { transform: scale(1.05) translateY(-3px); }
+          100% { transform: scale(1) translateY(0); }
+        }
+        @keyframes wrongShake {
+          0%, 100% { transform: translateX(0); }
+          20% { transform: translateX(-6px); }
+          40% { transform: translateX(6px); }
+          60% { transform: translateX(-4px); }
+          80% { transform: translateX(4px); }
+        }
+        @keyframes feedbackSlideIn {
+          0% { transform: translateY(20px) scale(0.95); opacity: 0; }
+          100% { transform: translateY(0) scale(1); opacity: 1; }
+        }
+        @keyframes resultPop {
+          0% { transform: scale(0.8) translateY(20px); opacity: 0; }
+          70% { transform: scale(1.03) translateY(-4px); opacity: 1; }
+          100% { transform: scale(1) translateY(0); opacity: 1; }
+        }
+        @keyframes timerPulse {
+          0%, 100% { transform: scale(1); }
+          50% { transform: scale(1.08); }
+        }
+        @keyframes shake {
+          0%, 100% { transform: rotate(0deg); }
+          25% { transform: rotate(-10deg); }
+          75% { transform: rotate(10deg); }
+        }
+        @keyframes pulse {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.5; }
+        }
+        @keyframes fadeOut {
           from { opacity: 1; }
           to { opacity: 0; }
         }
-        .animate-entrance-zoom { animation: entrance-zoom 1.5s ease-in forwards; }
-        .animate-fadeout { animation: fade-out 1s ease-out forwards; }
+        .batu-quiz-bg {
+          background: #FFF9E6;
+          background-image: radial-gradient(#374151 1.5px, transparent 1.5px);
+          background-size: 24px 24px;
+        }
       `}} />
 
-      {gameState === 'animating' ? renderAnimating() : null}
-      {gameState === 'intro' ? renderIntro() : null}
-      {gameState === 'playing' || gameState === 'feedback' ? renderQuiz() : null}
-      {(gameState === 'finished' || gameState === 'timeout' || gameState === 'fading_out') && (
-        <div className={`h-full w-full flex items-center justify-center ${gameState === 'fading_out' ? 'animate-fadeout' : ''}`}>
-          {renderResult()}
-        </div>
+      {/* Background overlay */}
+      <div
+        className="batu-quiz-bg"
+        style={{
+          position: 'absolute', inset: 0,
+          pointerEvents: gameState !== 'fading_out' ? 'auto' : 'none',
+          opacity: gameState === 'fading_out' ? 0 : 1,
+          transition: 'opacity 0.8s ease',
+        }}
+      />
+
+      {/* Screens */}
+      {gameState === 'animating' && renderAnimating()}
+      {gameState === 'intro' && renderIntro()}
+      {(gameState === 'playing' || gameState === 'feedback') && renderQuiz()}
+      {(gameState === 'finished' || gameState === 'timeout' || gameState === 'fading_out') && renderResult()}
+      {gameState === 'boss_reveal' && (
+        <BossReveal
+          onFightNow={handleBossFight}
+          onFlee={handleBossFlee}
+        />
       )}
     </div>
   );

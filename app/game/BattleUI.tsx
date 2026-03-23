@@ -18,9 +18,9 @@ const ELEMENT_CFG: Record<string, {
     color: string; textColor: string;
     Icon: React.FC<any>; attackName: string;
 }> = {
-    Tanah: { color: '#8B5E3C', textColor: '#fff', Icon: Mountain,  attackName: 'Ground Slam' },
-    Angin: { color: '#3B82F6', textColor: '#fff', Icon: Wind,      attackName: 'Gust Strike' },
-    Air:   { color: '#06B6D4', textColor: '#fff', Icon: Droplets,  attackName: 'Aqua Jet'   },
+    Tanah: { color: '#8B5E3C', textColor: '#fff', Icon: Mountain, attackName: 'Ground Slam' },
+    Angin: { color: '#3B82F6', textColor: '#fff', Icon: Wind, attackName: 'Gust Strike' },
+    Air: { color: '#06B6D4', textColor: '#fff', Icon: Droplets, attackName: 'Aqua Jet' },
 };
 
 // ─── Shared sub-components ────────────────────────────────────────────────────
@@ -580,7 +580,7 @@ export default function BattleUI() {
             audioRef.current = new Audio('/sfx/battlebgm.mp3');
             audioRef.current.loop = true;
             audioRef.current.volume = 0.5;
-            audioRef.current.play().catch(() => {});
+            audioRef.current.play().catch(() => { });
         }
         return () => {
             audioRef.current?.pause();
@@ -599,11 +599,11 @@ export default function BattleUI() {
     // Mission trigger when battle starts vs target
     useEffect(() => {
         if (!isActive || !wildCreature) return;
-        const targetId = 
+        const targetId =
             wildCreature.id === 3 ? 'orangutan' :
-            wildCreature.id === 8 ? 'komodo' :
-            wildCreature.id === 4 ? 'elangjawa' :
-            wildCreature.id === 5 ? 'badak' : null;
+                wildCreature.id === 2 ? 'komodo' :
+                    wildCreature.id === 1 ? 'elangjawa' :
+                        wildCreature.id === 4 ? 'badak' : null;
 
         if (targetId) {
             completeTask(targetId, `find_${targetId}`);
@@ -612,17 +612,48 @@ export default function BattleUI() {
 
     if (!isActive || !wildCreature) return null;
 
-    const enemyHpPct  = Math.max(0, (wildHp / wildMaxHp) * 100);
+    const enemyHpPct = Math.max(0, (wildHp / wildMaxHp) * 100);
     const playerHpPct = playerCreature ? Math.max(0, (playerHp / playerMaxHp) * 100) : 100;
     const playerElement = ((playerCreature as any)?.element || 'Tanah') as 'Tanah' | 'Angin' | 'Air';
-    const wildElement   = (wildCreature.element || 'Tanah') as 'Tanah' | 'Angin' | 'Air';
+    const wildElement = (wildCreature.element || 'Tanah') as 'Tanah' | 'Angin' | 'Air';
+
+    // ── Element matchup: Angin > Tanah > Air > Angin ──────────────────────────
+    const ELEMENT_ADVANTAGE: Record<string, string> = {
+        Angin: 'Tanah',  // Angin beats Tanah
+        Tanah: 'Air',    // Tanah beats Air
+        Air:   'Angin',  // Air beats Angin
+    };
+
+    function elementMultiplier(attacker: string, defender: string): number {
+        if (ELEMENT_ADVANTAGE[attacker] === defender) return 1.3;  // super effective
+        if (ELEMENT_ADVANTAGE[defender] === attacker) return 0.7;  // not very effective
+        return 1.0;
+    }
+
+    // ── Level-scaled damage ────────────────────────────────────────────────────
+    // Base: 8 + attacker_level * 0.6, randomised ±25%, then element multiplier
+    function calcDamage(
+        attackerLevel: number,
+        attackerElement: string,
+        defenderElement: string,
+        variance = 0.25,
+    ): { damage: number; effectiveness: 'super' | 'weak' | 'normal' } {
+        const base = 8 + attackerLevel * 0.6;
+        const roll = 1 - variance + Math.random() * variance * 2;
+        const mult = elementMultiplier(attackerElement, defenderElement);
+        const dmg = Math.max(1, Math.round(base * roll * mult));
+        const effectiveness =
+            mult > 1 ? 'super' : mult < 1 ? 'weak' : 'normal';
+        return { damage: dmg, effectiveness };
+    }
 
     function triggerAttack(attackerElement: 'Tanah' | 'Angin' | 'Air', target: 'enemy' | 'player') {
         setAttackEffect({ element: attackerElement, target });
         const setShake = target === 'enemy' ? setEnemyShake : setPlayerShake;
-        setTimeout(() => { setShake(true); }, 400);
-        setTimeout(() => { setShake(false); }, 800);
-        setTimeout(() => { setAttackEffect({ element: null, target: null }); }, 1400);
+        // Shake fires when projectile arrives (~700ms travel)
+        setTimeout(() => { setShake(true); }, 700);
+        setTimeout(() => { setShake(false); }, 1100);
+        setTimeout(() => { setAttackEffect({ element: null, target: null }); }, 1800);
     }
 
     // ── Creature selector handlers ──
@@ -645,46 +676,53 @@ export default function BattleUI() {
         if (!playerCreature) return;
         setMenuOpen(false);
         const attackName = ELEMENT_CFG[playerElement]?.attackName || 'Tackle';
-        setPhase('player_attack', `${playerCreature.nickname || playerCreature.name} menggunakan ${attackName}!`);
-        const targetId = 
+        const targetId =
             wildCreature.id === 3 ? 'orangutan' :
-            wildCreature.id === 8 ? 'komodo' :
-            wildCreature.id === 4 ? 'elangjawa' :
-            wildCreature.id === 5 ? 'badak' : null;
+                wildCreature.id === 2 ? 'komodo' :
+                    wildCreature.id === 1 ? 'elangjawa' :
+                        wildCreature.id === 4 ? 'badak' : null;
         if (targetId) completeTask(targetId, `battle_${targetId}`);
+
+        const playerLv = (playerCreature as any).level || 1;
+        const { damage: dmg, effectiveness } = calcDamage(playerLv, playerElement, wildElement);
+        const effText = effectiveness === 'super' ? ' Sangat efektif!' : effectiveness === 'weak' ? ' Kurang efektif...' : '';
+
+        setPhase('player_attack', `${playerCreature.nickname || playerCreature.name} menggunakan ${attackName}!${effText}`);
         triggerAttack(playerElement, 'enemy');
 
+        // Damage applies when projectile lands (~700ms)
         setTimeout(() => {
-            const dmg = 10 + Math.floor(Math.random() * 10);
             damageWild(dmg);
             if (wildHp - dmg <= 0) {
                 setTimeout(() => {
                     setPhase('win', `${wildCreature.name} tidak bisa bertarung lagi!`);
                     setTimeout(() => { endBattle(); setMenuState('playing'); }, 2000);
-                }, 1000);
+                }, 800);
             } else {
                 setTimeout(() => {
+                    const wildLv = wildCreature.level || 5;
                     const eName = ELEMENT_CFG[wildElement]?.attackName || 'Strike';
-                    setPhase('enemy_attack', `${wildCreature.name} membalas dengan ${eName}!`);
+                    const { damage: eDmg, effectiveness: eEff } = calcDamage(wildLv, wildElement, playerElement);
+                    const eEffText = eEff === 'super' ? ' Sangat efektif!' : eEff === 'weak' ? ' Kurang efektif...' : '';
+                    setPhase('enemy_attack', `${wildCreature.name} membalas dengan ${eName}!${eEffText}`);
                     triggerAttack(wildElement, 'player');
                     setTimeout(() => {
-                        const eDmg = 5 + Math.floor(Math.random() * 8);
                         damagePlayer(eDmg);
                         if (playerHp - eDmg <= 0) {
                             setTimeout(() => {
                                 setPhase('flee', 'Kamu pingsan! Mundur dulu...');
                                 setTimeout(() => { endBattle(); setMenuState('playing'); }, 2000);
-                            }, 1000);
+                            }, 800);
                         } else {
                             setTimeout(() => {
                                 setPhase('select_action', `Apa yang akan dilakukan ${playerCreature.nickname || playerCreature.name}?`);
                                 setMenuOpen(true);
-                            }, 1000);
+                            }, 900);
                         }
-                    }, 1500);
-                }, 1500);
+                    }, 700);
+                }, 1400);
             }
-        }, 1500);
+        }, 700);
     };
 
     const handleDefend = () => {
@@ -694,13 +732,17 @@ export default function BattleUI() {
         setPhase('select_action', `${playerCreature.nickname || playerCreature.name} mengambil posisi bertahan!`);
 
         setTimeout(() => {
+            const wildLv = wildCreature.level || 5;
             const eName = ELEMENT_CFG[wildElement]?.attackName || 'Strike';
-            setPhase('enemy_attack', `${wildCreature.name} menggunakan ${eName}!`);
+            // Defense reduces damage by 55-65% (player blocks with shield)
+            const { damage: rawDmg } = calcDamage(wildLv, wildElement, playerElement);
+            const defenseReduction = 0.55 + Math.random() * 0.1;
+            const reducedDmg = Math.max(1, Math.round(rawDmg * (1 - defenseReduction)));
+
+            setPhase('enemy_attack', `${wildCreature.name} menggunakan ${eName}! Tapi diblokir!`);
             triggerAttack(wildElement, 'player');
 
             setTimeout(() => {
-                const rawDmg = 5 + Math.floor(Math.random() * 8);
-                const reducedDmg = Math.max(1, Math.floor(rawDmg * 0.4));
                 damagePlayer(reducedDmg);
 
                 setTimeout(() => {
@@ -709,12 +751,12 @@ export default function BattleUI() {
                         setPhase('flee', 'Kamu pingsan! Mundur dulu...');
                         setTimeout(() => { endBattle(); setMenuState('playing'); }, 2000);
                     } else {
-                        setPhase('select_action', `Diblokir! Hanya ${reducedDmg} damage.`);
+                        setPhase('select_action', `Diblokir! Hanya ${reducedDmg} damage. Sisa giliran player.`);
                         setMenuOpen(true);
                     }
-                }, 1200);
-            }, 1500);
-        }, 1200);
+                }, 900);
+            }, 700);
+        }, 1000);
     };
 
     const handleCatch = () => {
@@ -731,11 +773,11 @@ export default function BattleUI() {
                 setPhase('catch_success', `Gotcha! ${wildCreature.name} berhasil ditangkap!`);
                 addCreature(caught);
 
-                const targetId = 
+                const targetId =
                     wildCreature.id === 3 ? 'orangutan' :
-                    wildCreature.id === 8 ? 'komodo' :
-                    wildCreature.id === 4 ? 'elangjawa' :
-                    wildCreature.id === 5 ? 'badak' : null;
+                        wildCreature.id === 2 ? 'komodo' :
+                            wildCreature.id === 1 ? 'elangjawa' :
+                                wildCreature.id === 4 ? 'badak' : null;
                 if (targetId) completeTask(targetId, `catch_${targetId}`);
 
                 // Show catch success screen
@@ -785,7 +827,7 @@ export default function BattleUI() {
         setMenuState('playing');
     };
 
-    const wildAnim   = phase === 'enemy_attack' ? 'attack' : 'idle';
+    const wildAnim = phase === 'enemy_attack' ? 'attack' : 'idle';
     const playerAnim = phase === 'player_attack' ? 'attack' : 'idle';
 
     return (
@@ -855,9 +897,11 @@ export default function BattleUI() {
                                 playerUrl={playerCreature.modelUrl}
                                 playerScale={playerCreature.scale}
                                 playerAnim={playerAnim}
+                                playerRotationOffset={(playerCreature as any).rotationOffset ?? 0}
                                 enemyUrl={wildCreature.modelUrl}
                                 enemyScale={wildCreature.scale}
                                 enemyAnim={wildAnim}
+                                enemyRotationOffset={(wildCreature as any).rotationOffset ?? 0}
                                 attackEffect={attackEffect}
                                 defenseActive={defenseActive}
                             />
@@ -890,20 +934,21 @@ export default function BattleUI() {
 
                         {/* Bottom dialog */}
                         <div style={{
-                            minHeight: 148,
                             background: '#E5E7EB',
                             borderTop: '3px solid #374151',
-                            display: 'flex', flexDirection: 'row',
-                            alignItems: 'stretch', gap: 12, padding: '10px 12px',
+                            display: 'flex', flexDirection: 'column',
+                            padding: '10px 12px',
+                            gap: 10,
+                            flexShrink: 0,
                         }}>
                             {/* Message */}
                             <div style={{
-                                flex: 1, background: '#fff',
+                                background: '#fff',
                                 border: '2px solid #374151', borderRadius: 14,
-                                padding: '14px 18px', display: 'flex', alignItems: 'center', overflow: 'hidden',
+                                padding: '10px 14px', minHeight: 48, display: 'flex', alignItems: 'center',
                             }}>
                                 <p key={message} style={{
-                                    margin: 0, fontSize: 'clamp(1rem,2.5vw,1.5rem)',
+                                    margin: 0, fontSize: 'clamp(0.85rem,2.5vw,1.4rem)',
                                     fontWeight: 900, color: '#374151',
                                     textTransform: 'uppercase', letterSpacing: '0.04em',
                                     lineHeight: 1.4, animation: 'msgIn 0.25s ease-out',
@@ -914,11 +959,11 @@ export default function BattleUI() {
 
                             {/* Buttons */}
                             {menuOpen && (
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, width: 280, flexShrink: 0 }}>
-                                    <BattleBtn onClick={handleAttack} color="#EF4444" Icon={Sword}      label="Fight"  />
-                                    <BattleBtn onClick={handleCatch}  color="#3B82F6" Icon={Watch}      label="Arloji" />
-                                    <BattleBtn onClick={handleDefend} color="#10B981" Icon={Shield}     label="Defend" />
-                                    <BattleBtn onClick={handleRun}    color="#F59E0B" Icon={Footprints} label="Run"    />
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                                    <BattleBtn onClick={handleAttack} color="#EF4444" Icon={Sword} label="Fight" />
+                                    <BattleBtn onClick={wildCreature.id === 5 ? undefined : handleCatch} disabled={wildCreature.id === 5} color="#3B82F6" Icon={Watch} label="Arloji" />
+                                    <BattleBtn onClick={handleDefend} color="#10B981" Icon={Shield} label="Defend" />
+                                    <BattleBtn onClick={wildCreature.id === 5 ? undefined : handleRun} disabled={wildCreature.id === 5} color="#F59E0B" Icon={Footprints} label="Run" />
                                 </div>
                             )}
                         </div>
