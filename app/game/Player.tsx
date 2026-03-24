@@ -367,8 +367,9 @@ export default function Player({ positionRef }: { positionRef?: React.MutableRef
 
     const { camera } = useThree()
 
-    useFrame((_, delta) => {
+    useFrame((_, timeDelta) => {
         if (!group.current) return;
+        const delta = Math.min(timeDelta, 0.1);
 
         // Read store state once per frame (not via hook subscription)
         const { menuState: currentMenuState, forward: jF, right: jR } = useJoystickStore.getState();
@@ -545,9 +546,13 @@ export default function Player({ positionRef }: { positionRef?: React.MutableRef
 
         _pUp.copy(playerPosition.current).normalize();
 
-        _currentCamFwd.copy(cameraForward.current).projectOnPlane(_pUp).normalize();
-        if (_currentCamFwd.lengthSq() < 0.001) {
-            _currentCamFwd.set(1, 0, 0).projectOnPlane(_pUp).normalize();
+        _currentCamFwd.copy(cameraForward.current).projectOnPlane(_pUp);
+        if (_currentCamFwd.lengthSq() < 0.0001) {
+            if (Math.abs(_pUp.x) < 0.9) _currentCamFwd.set(1, 0, 0);
+            else _currentCamFwd.set(0, 1, 0);
+            _currentCamFwd.projectOnPlane(_pUp).normalize();
+        } else {
+            _currentCamFwd.normalize();
         }
 
         if (isMoving && !IsCreating) {

@@ -316,12 +316,20 @@ export function MissionHUD() {
 
 export function MissionCompleteOverlay({ onClose }: { onClose: () => void }) {
   const { currentMission, missionStatus } = useMissionStore()
-  const [hasDismissed, setHasDismissed] = useState(false)
+  const [hasDismissed, setHasDismissed] = useState(true) // assume dismissed initially to prevent flash
 
-  if (missionStatus !== 'completed' || hasDismissed) return null
+  useEffect(() => {
+    if (currentMission && missionStatus === 'completed') {
+      const dismissed = localStorage.getItem(`mission_alert_dismissed_${currentMission}`)
+      setHasDismissed(dismissed === 'true')
+    }
+  }, [currentMission, missionStatus])
+
+  if (missionStatus !== 'completed' || hasDismissed || !currentMission) return null
 
   const handleNext = () => {
     setHasDismissed(true)
+    localStorage.setItem(`mission_alert_dismissed_${currentMission}`, 'true')
     if (onClose) onClose()
   }
 
@@ -333,7 +341,7 @@ export function MissionCompleteOverlay({ onClose }: { onClose: () => void }) {
   if (currentMission === 'badak') desc = 'Makhluk bercula satu ini kini aman dari ancaman perburuan! Temui Kakek Nusaka untuk sebuah penghargaan.'
 
   return (
-    <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+    <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 pointer-events-auto">
       <div className="bg-[#FEFAE0] border-4 border-[#283618] rounded-[2rem] p-6 sm:p-8 w-full max-w-[95vw] sm:max-w-md mx-auto shadow-[6px_6px_0_#283618] sm:shadow-[8px_8px_0_#283618]">
         <div className="text-center">
           <div className="w-16 h-16 sm:w-20 sm:h-20 bg-[#10B981] rounded-full flex items-center justify-center mx-auto mb-4 border-4 border-[#283618]">

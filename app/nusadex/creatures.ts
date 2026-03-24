@@ -96,6 +96,6 @@ export const NUSA_CREATURES: Creature[] = [
         exp: 90,
         scale: 3.5,
         position: [0, 1.5, 0],
-        rotationOffset: Math.PI,  // Harimau model menghadap ke arah lawan
+        rotationOffset: 75 * (Math.PI / 180),  // Menghadap diagonal ke kanan bawah
     },
 ];

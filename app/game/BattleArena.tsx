@@ -104,9 +104,9 @@ function AttackProjectile({
         }
 
         const fromY = bodyCenter(fromScale);
-        const toY   = bodyCenter(toScale);
+        const toY = bodyCenter(toScale);
         const start = new THREE.Vector3(fromPos[0], fromPos[1] + fromY, fromPos[2]);
-        const end   = new THREE.Vector3(toPos[0],   toPos[1] + toY,   toPos[2]);
+        const end = new THREE.Vector3(toPos[0], toPos[1] + toY, toPos[2]);
 
         if (!exploded.current) {
             t.current += delta * 1.8; // travel speed
@@ -138,7 +138,7 @@ function AttackProjectile({
 
                 // Spin for Angin
                 if (element === 'Angin') projRef.current.rotation.z += delta * 12;
-                if (element === 'Air')   projRef.current.rotation.x += delta * 8;
+                if (element === 'Air') projRef.current.rotation.x += delta * 8;
             }
 
             if (progress >= 1) {
@@ -147,7 +147,7 @@ function AttackProjectile({
                 // Spawn burst particles at target
                 particles.current = Array.from({ length: PARTICLE_COUNT }, () => {
                     const theta = Math.random() * Math.PI * 2;
-                    const phi   = (Math.random() - 0.5) * Math.PI;
+                    const phi = (Math.random() - 0.5) * Math.PI;
                     const speed = 0.12 + Math.random() * 0.2;
                     return {
                         pos: end.clone().add(new THREE.Vector3(
@@ -324,7 +324,7 @@ function DefenceShield({ origin, active, playerScale }: {
 }) {
     const outer = useRef<THREE.Mesh>(null!);
     const inner = useRef<THREE.Mesh>(null!);
-    const hex   = useRef<THREE.Mesh>(null!);
+    const hex = useRef<THREE.Mesh>(null!);
     const t = useRef(0);
     const radius = Math.max(2.2, playerScale * 0.9);
 
@@ -450,7 +450,7 @@ function Model({
                 action.setLoop(THREE.LoopOnce, 1);
                 action.clampWhenFinished = true;
             } else {
-                action.setLoop(THREE.LoopRepeat, Infinity);
+            action.setLoop(THREE.LoopRepeat, Infinity);
                 action.clampWhenFinished = false;
             }
             if (currentActionRef.current && currentActionRef.current !== action) {
@@ -499,16 +499,16 @@ function SceneContent({
     }, [isPortrait, camera]);
 
     const playerAttacking = !!(attackEffect?.target === 'enemy' && attackEffect?.element);
-    const enemyAttacking  = !!(attackEffect?.target === 'player' && attackEffect?.element);
+    const enemyAttacking = !!(attackEffect?.target === 'player' && attackEffect?.element);
     const anyAttack = !!(attackEffect?.element && attackEffect?.target);
 
     const activeElement = (attackEffect?.element ?? 'Tanah') as keyof typeof ELEMENT_CFG;
 
     // Projectile travels from attacker → target
     const fromPos = playerAttacking ? playerPos : enemyPos;
-    const toPos   = playerAttacking ? enemyPos   : playerPos;
-    const fromSc  = playerAttacking ? (playerScale ?? 1) : (enemyScale ?? 1);
-    const toSc    = playerAttacking ? (enemyScale ?? 1)  : (playerScale ?? 1);
+    const toPos = playerAttacking ? enemyPos : playerPos;
+    const fromSc = playerAttacking ? (playerScale ?? 1) : (enemyScale ?? 1);
+    const toSc = playerAttacking ? (enemyScale ?? 1) : (playerScale ?? 1);
 
     return (
         <>

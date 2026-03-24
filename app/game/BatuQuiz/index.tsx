@@ -407,9 +407,9 @@ export default function BatuQuiz() {
           {/* Stats row */}
           <div style={{ display: 'flex', gap: '12px', marginBottom: '24px' }}>
             {[
-              { icon: <Brain size={18} />, label: '20 Soal', bg: '#BFDBFE' },
-              { icon: <Zap size={18} />, label: '+10 XP/soal', bg: '#FEF08A' },
-              { icon: <Target size={18} />, label: '60 Detik', bg: '#A7F3D0' },
+              { icon: <Brain size={18} />, label: `${QUESTIONS_PER_ROUND} Soal`, bg: '#BFDBFE' },
+              { icon: <Zap size={18} />, label: `+${XP_PER_QUESTION} XP/soal`, bg: '#FEF08A' },
+              { icon: <Target size={18} />, label: `${TOTAL_TIME} Detik`, bg: '#A7F3D0' },
             ].map((item, i) => (
               <div key={i} style={{
                 flex: 1, background: item.bg, border: '3px solid #374151',

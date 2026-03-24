@@ -60,12 +60,12 @@ export default function ChoosePartnerPage() {
 
     const creatures = NUSA_CREATURES
 
-    // If already chosen, redirect
+    // If already chosen, redirect only if entering directly
     useEffect(() => {
-        if (hasChosenPartner) {
+        if (hasChosenPartner && step === 'intro') {
             router.replace('/')
         }
-    }, [hasChosenPartner, router])
+    }, [hasChosenPartner, step, router])
 
     const selectedCreature: Creature | null =
         selectedIndex !== null ? creatures[selectedIndex] : null
@@ -112,7 +112,7 @@ export default function ChoosePartnerPage() {
 
     const handleFinish = () => {
         useJoystickStore.getState().setMenuState('playing')
-        startTransition(() => router.push('/'))
+        window.location.href = '/'
     }
 
     /* ── STEP: INTRO ────────────────────────────── */

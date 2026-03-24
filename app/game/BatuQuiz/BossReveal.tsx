@@ -67,16 +67,25 @@ function TigerModel({ phase }: { phase: 'enter' | 'roar' | 'idle' }) {
 
 // ─── Cinematic camera ─────────────────────────────────────────────────────────
 function CinematicCamera({ phase, shaking }: { phase: string; shaking: boolean }) {
-  const { camera } = useThree();
+  const { camera, viewport } = useThree();
+  const isPortrait = viewport.aspect < 1;
   const t = useRef(0);
 
   useFrame((_, delta) => {
     t.current += delta;
     const cam = camera as THREE.PerspectiveCamera;
+    
+    // Responsive FOV, matching normal fights
+    cam.fov = isPortrait ? 45 : 35;
+    
     const progress = Math.min(t.current / 2.5, 1);
     const eased = 1 - Math.pow(1 - progress, 3);
-    // Start far, pull closer — adjusted to show bigger model
-    cam.position.set(0, 2 + (1 - eased) * 3, 8 - eased * 2);
+    
+    // If portrait, start further away and travel a bit more
+    const startZ = isPortrait ? 22 : 15;
+    const travelZ = isPortrait ? 7 : 5;
+
+    cam.position.set(isPortrait ? 2 : 0, 2 + (1 - eased) * 3, startZ - eased * travelZ);
     cam.lookAt(0, 1, 0);
     if (shaking) {
       cam.position.x += (Math.random() - 0.5) * 0.06;
@@ -216,7 +225,7 @@ export default function BossReveal({ onFightNow, onFlee }: BossRevealProps) {
         <div style={{ position: 'absolute', inset: 0, bottom: '28%' }}>
           <Canvas
             shadows
-            camera={{ position: [0, 3.5, 9], fov: 50 }}
+            camera={{ position: [0, 3.5, 15], fov: 35 }}
             gl={{ antialias: true, alpha: true }}
           >
             <ArenaScene phase={phase} shaking={shaking} />

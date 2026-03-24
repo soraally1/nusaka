@@ -189,7 +189,7 @@ export default function DongengOrangutanPage() {
                     loop
                     muted={isMuted}
                     playsInline
-                    className="w-full h-full object-cover"
+                    className="w-full h-[60vh] md:h-full object-cover"
                     onError={(e) => {
                         console.error('Video failed to load:', e)
                     }}
