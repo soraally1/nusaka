@@ -90,25 +90,70 @@ export const KOMODO_DATA = generateAnimalData(15, 8812);
 export const ORANGUTAN_DATA = generateAnimalData(15, 9923);
 export const RAJAWALI_DATA = generateAnimalData(15, 1134);
 export const BADAK_DATA = generateAnimalData(12, 5511);
-export const BATU_DATA = generateAnimalData(40, 4422);
+export const BATU_DATA = generateAnimalData(20, 4422);
 
-export function randomizeBatuPosition(id: number) {
+export function randomizeBatuPosition(id: number, playerPos?: THREE.Vector3) {
     if (!BATU_DATA[id]) return;
+    
+    const MAX_ATTEMPTS = 50;
+    const MIN_DIST_FROM_PLAYER = 50; // Minimum distance from player
+    const MIN_DIST_FROM_TREES = 8;   // Minimum distance from trees
+    const MIN_DIST_FROM_STONES = 15; // Minimum distance from other stones
+    
+    for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+        const u = Math.random();
+        const v = Math.random();
+        const theta = 2 * Math.PI * u;
+        const phi = Math.acos(2 * v - 1);
+
+        const x = PLANET_RADIUS * Math.sin(phi) * Math.cos(theta);
+        const y = PLANET_RADIUS * Math.sin(phi) * Math.sin(theta);
+        const z = PLANET_RADIUS * Math.cos(phi);
+
+        const candidatePos = new THREE.Vector3(x, y, z);
+        
+        // Check distance from player
+        if (playerPos && candidatePos.distanceTo(playerPos) < MIN_DIST_FROM_PLAYER) {
+            continue;
+        }
+        
+        // Check distance from trees
+        let tooClose = false;
+        for (let i = 0; i < TREES_DATA.length; i++) {
+            if (candidatePos.distanceTo(TREES_DATA[i].position) < MIN_DIST_FROM_TREES) {
+                tooClose = true;
+                break;
+            }
+        }
+        if (tooClose) continue;
+        
+        // Check distance from other stones
+        for (let i = 0; i < BATU_DATA.length; i++) {
+            if (i === id) continue;
+            if (candidatePos.distanceTo(BATU_DATA[i].position) < MIN_DIST_FROM_STONES) {
+                tooClose = true;
+                break;
+            }
+        }
+        if (tooClose) continue;
+        
+        // Valid position found
+        BATU_DATA[id].position.copy(candidatePos);
+        BATU_DATA[id].normal.copy(candidatePos).normalize();
+        BATU_DATA[id].rotationY = Math.random() * Math.PI * 2;
+        return;
+    }
+    
+    // Fallback: just place it randomly if no valid position found
     const u = Math.random();
     const v = Math.random();
     const theta = 2 * Math.PI * u;
     const phi = Math.acos(2 * v - 1);
-
     const x = PLANET_RADIUS * Math.sin(phi) * Math.cos(theta);
     const y = PLANET_RADIUS * Math.sin(phi) * Math.sin(theta);
     const z = PLANET_RADIUS * Math.cos(phi);
-
     BATU_DATA[id].position.set(x, y, z);
     BATU_DATA[id].normal.copy(BATU_DATA[id].position).normalize();
-    // Sink the rock into the ground by moving it slightly against its normal
-    const sinkAmount = 1.0; 
-    BATU_DATA[id].position.addScaledVector(BATU_DATA[id].normal, -sinkAmount);
-    
     BATU_DATA[id].rotationY = Math.random() * Math.PI * 2;
 }
 
@@ -389,7 +434,7 @@ export default function Planet({ playerRef }: { playerRef?: React.MutableRefObje
             </mesh>
             <Trees />
             {BATU_DATA.map((data, i) => (
-                <Stone key={`batu-${i}`} data={data} />
+                <Stone key={`batu-${i}-${respawnTrigger}`} data={data} />
             ))}
             {KOMODO_DATA.map((data, i) => (
                 <Animal key={`komodo-${i}`} path="/model/Komodo.glb" position={data.position.clone().addScaledVector(data.normal, 0)} normal={data.normal} rotationY={data.rotationY} scale={data.scale * 0.3} />

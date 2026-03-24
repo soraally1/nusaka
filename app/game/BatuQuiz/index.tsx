@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Timer, Star, Award, ChevronRight, CheckCircle2, XCircle, RotateCcw, Sparkles, AlertCircle, Zap, Target, Brain } from 'lucide-react';
+import { Timer, Star, Award, ChevronRight, CheckCircle2, XCircle, Sparkles, AlertCircle, Zap, Target, Brain } from 'lucide-react';
 import { useStoneStore } from '../stoneStore';
 import { useJoystickStore } from '../store';
 import { QUIZ_DATA, TOTAL_TIME, XP_PER_QUESTION, QUESTIONS_PER_ROUND } from './data';
@@ -222,7 +222,7 @@ function AnswerButton({
 // Main Component
 // ─────────────────────────────────────────────
 export default function BatuQuiz() {
-  const { endMinigame, nearbyStoneId, triggerRespawn } = useStoneStore();
+  const { endMinigame, nearbyStoneId, triggerRespawn, playerPosition } = useStoneStore();
   const setMenuState = useJoystickStore(s => s.setMenuState);
   const startBattle = useBattleStore(s => s.startBattle);
   const { capturedCreatures, firstPartner } = useCreatureStore();
@@ -283,17 +283,18 @@ export default function BatuQuiz() {
       setStats(prev => ({ ...prev, wrong: prev.wrong + 1 }));
     }
     setUserAnswers(prev => [...prev, { questionId: question.id, selected: option, isCorrect: correct }]);
-    setTimeout(() => {
-      if (currentQuestionIdx < QUESTIONS_PER_ROUND - 1) {
-        setCurrentQuestionIdx(prev => prev + 1);
-        setSelectedOption(null);
-        setIsCorrect(null);
-        setGameState('playing');
-      } else {
-        // Trigger boss reveal after last question!
-        setGameState('boss_reveal');
-      }
-    }, 2800);
+  };
+
+  const handleNextQuestion = () => {
+    if (currentQuestionIdx < QUESTIONS_PER_ROUND - 1) {
+      setCurrentQuestionIdx(prev => prev + 1);
+      setSelectedOption(null);
+      setIsCorrect(null);
+      setGameState('playing');
+    } else {
+      // Trigger boss reveal after last question!
+      setGameState('boss_reveal');
+    }
   };
 
   const quitMinigame = () => { endMinigame(); setMenuState('playing'); };
@@ -301,7 +302,7 @@ export default function BatuQuiz() {
   const finishAndRespawn = () => {
     setGameState('fading_out');
     setTimeout(() => {
-      if (nearbyStoneId !== null) { randomizeBatuPosition(nearbyStoneId); triggerRespawn(); }
+      if (nearbyStoneId !== null) { randomizeBatuPosition(nearbyStoneId, playerPosition ?? undefined); triggerRespawn(); }
       quitMinigame();
     }, 800);
   };
@@ -329,7 +330,7 @@ export default function BatuQuiz() {
   };
 
   const handleBossFlee = () => {
-    finishAndRespawn();
+    setGameState('finished');
   };
 
   // ── Screens ─────────────────────────────────
@@ -619,14 +620,24 @@ export default function BatuQuiz() {
               <p style={{ margin: 0, fontSize: '14px', color: isCorrect ? '#065F46' : '#991B1B', lineHeight: 1.5 }}>
                 {question.explanation}
               </p>
-              <div style={{
-                display: 'flex', alignItems: 'center', justifyContent: 'flex-end',
-                gap: '4px', marginTop: '12px',
-                fontSize: '12px', fontWeight: 700, color: '#6B7280',
-                animation: 'pulse 1s ease-in-out infinite',
-              }}>
-                Menuju soal berikutnya <ChevronRight size={14} />
-              </div>
+              <button
+                onClick={handleNextQuestion}
+                style={{
+                  width: '100%', marginTop: '12px', padding: '12px 16px',
+                  background: 'linear-gradient(180deg, #374151 0%, #1F2937 100%)',
+                  border: '3px solid #111827', borderRadius: '12px',
+                  boxShadow: '3px 3px 0 #111827',
+                  color: '#FFF9E6', fontWeight: 800, fontSize: '14px',
+                  cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+                  transition: 'transform 0.1s ease, box-shadow 0.1s ease',
+                }}
+                onMouseDown={e => { (e.currentTarget as HTMLButtonElement).style.transform = 'translate(3px,3px)'; (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 0 0 #111827'; }}
+                onMouseUp={e => { (e.currentTarget as HTMLButtonElement).style.transform = ''; (e.currentTarget as HTMLButtonElement).style.boxShadow = '3px 3px 0 #111827'; }}
+                onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.transform = ''; (e.currentTarget as HTMLButtonElement).style.boxShadow = '3px 3px 0 #111827'; }}
+              >
+                Lanjutkan <ChevronRight size={16} />
+              </button>
             </div>
           )}
         </div>
@@ -738,22 +749,7 @@ export default function BatuQuiz() {
             >
               Selesaikan Penjelajahan
             </button>
-            <button
-              onClick={startQuiz}
-              style={{
-                width: '100%', padding: '14px',
-                background: '#A7F3D0', border: '3px solid #374151',
-                borderRadius: '16px', boxShadow: '3px 3px 0 #374151',
-                color: '#374151', fontWeight: 800, fontSize: '15px',
-                cursor: 'pointer',
-                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
-              }}
-              onMouseDown={e => { (e.currentTarget as HTMLButtonElement).style.transform = 'translate(3px,3px)'; (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 0 0 #374151'; }}
-              onMouseUp={e => { (e.currentTarget as HTMLButtonElement).style.transform = ''; (e.currentTarget as HTMLButtonElement).style.boxShadow = '3px 3px 0 #374151'; }}
-              onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.transform = ''; (e.currentTarget as HTMLButtonElement).style.boxShadow = '3px 3px 0 #374151'; }}
-            >
-              <RotateCcw size={16} strokeWidth={2.5} /> Coba Lagi
-            </button>
+
           </div>
         </div>
       </div>
