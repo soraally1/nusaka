@@ -118,24 +118,14 @@ export default function DongengBadakPage() {
     }
 
     const handleGoToMission = async () => {
-        if (typeof window !== 'undefined') {
-            localStorage.setItem('badak_story_watched', 'true')
-            localStorage.setItem('current_mission', 'badak')
-            localStorage.setItem('mission_status', 'active')
-            localStorage.setItem('mission_objective', 'Temukan Badak Jawa di hutan Ujung Kulon')
-            
-            // Sync to Firestore if user is logged in
-            const user = auth.currentUser
-            if (user) {
-                try {
-                    await updateDoc(doc(db, 'players', user.uid), {
-                        mission: 'badak',
-                        missionStatus: 'active',
-                        missionObjective: 'Temukan Badak Jawa di hutan Ujung Kulon'
-                    })
-                } catch (e) {
-                    console.error('Error saving mission to Firestore:', e)
-                }
+        const user = auth.currentUser
+        if (user) {
+            try {
+                await updateDoc(doc(db, 'players', user.uid), {
+                    currentMission: 'badak'
+                })
+            } catch (e) {
+                console.error('Error saving mission to Firestore:', e)
             }
         }
         startTransition(() => {

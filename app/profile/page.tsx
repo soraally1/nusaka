@@ -185,12 +185,12 @@ export default function ProfilePage() {
                     <div className="mt-2">
                       <div className="flex justify-between text-lg text-[#374151]/70 font-bold mb-1">
                         <span>EXP</span>
-                        <span>{partner.exp}/100</span>
+                        <span>{partner.exp}/{30 + (partner.level || 1) * 20}</span>
                       </div>
                       <div className="w-full h-3 bg-[#374151]/10 border-[2px] border-[#374151] rounded-full overflow-hidden">
                         <div
                           className="h-full bg-[#4ADE80] rounded-full transition-all"
-                          style={{ width: `${partner.exp}%` }}
+                          style={{ width: `${Math.min(100, Math.round(((partner.exp || 0) / (30 + (partner.level || 1) * 20)) * 100))}%` }}
                         />
                       </div>
                     </div>

@@ -58,7 +58,8 @@ export default function ChoosePartnerPage() {
     const [nickname, setNickname] = useState('')
     const [isSaving, setIsSaving] = useState(false)
 
-    const creatures = NUSA_CREATURES
+    const STARTER_IDS = [1, 2, 3] // Elang Jawa, Komodo, OrangUtan
+    const creatures = NUSA_CREATURES.filter(c => STARTER_IDS.includes(c.id))
 
     // If already chosen, redirect only if entering directly
     useEffect(() => {
@@ -93,12 +94,20 @@ export default function ChoosePartnerPage() {
             const { db, auth } = await import('../../lib/firebase');
             const { doc, updateDoc } = await import('firebase/firestore');
             const user = auth.currentUser;
+            // Build the partner with an instanceId (matches setFirstPartner logic)
+            const partnerWithId = {
+                ...partner,
+                level: 1,
+                exp: 0,
+                instanceId: `starter-${selectedCreature.id}-${Date.now()}`,
+            };
             if (user) {
                 await updateDoc(doc(db, 'players', user.uid), {
-                    partner: partner
+                    partner: partnerWithId,
+                    capturedCreatures: [partnerWithId],
                 });
             }
-            setFirstPartner(partner)
+            setFirstPartner(partnerWithId)
             setStep('reveal')
         } catch (err) {
             console.error('Error saving partner:', err);

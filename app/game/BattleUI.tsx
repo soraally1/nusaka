@@ -545,8 +545,172 @@ function NicknameScreen({
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// MAIN COMPONENT
+// SCREEN 4: Level Up celebration
 // ─────────────────────────────────────────────────────────────────────────────
+function LevelUpScreen({
+    creature,
+    xpGained,
+    leveledUp,
+    newLevel,
+    newXp,
+    xpToNext,
+    onContinue,
+}: {
+    creature: PartnerCreature;
+    xpGained: number;
+    leveledUp: boolean;
+    newLevel: number;
+    newXp: number;
+    xpToNext: number;
+    onContinue: () => void;
+}) {
+    const [show, setShow] = useState(false);
+    useEffect(() => { const t = setTimeout(() => setShow(true), 80); return () => clearTimeout(t); }, []);
+
+    const xpPct = Math.min(100, (newXp / xpToNext) * 100);
+    const displayName = (creature as any).nickname || creature.name;
+
+    return (
+        <div style={{
+            position: 'absolute', inset: 0, zIndex: 70,
+            display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+            fontFamily: 'var(--font-nanum-pen)',
+            background: leveledUp
+                ? 'radial-gradient(ellipse at 50% 40%, #1a2a0a 0%, #0a0a0a 100%)'
+                : 'radial-gradient(ellipse at 50% 40%, #0a1a2a 0%, #050505 100%)',
+            overflow: 'hidden',
+            opacity: show ? 1 : 0,
+            transition: 'opacity 0.3s ease',
+        }}>
+            {/* Glow rings on level-up */}
+            {leveledUp && [
+                'rgba(250,204,21,0.25)',
+                'rgba(250,204,21,0.12)',
+                'rgba(250,204,21,0.06)',
+            ].map((color, i) => (
+                <div key={i} style={{
+                    position: 'absolute',
+                    width: 200 + i * 180,
+                    height: 200 + i * 180,
+                    borderRadius: '50%',
+                    border: `3px solid ${color}`,
+                    animation: `burstRing 2s ${i * 0.3}s ease-out infinite`,
+                }} />
+            ))}
+
+            <div style={{ position: 'relative', zIndex: 2, width: '90%', maxWidth: 360 }}>
+                {/* Header */}
+                <div style={{
+                    textAlign: 'center',
+                    marginBottom: 24,
+                    animation: 'fadeUp 0.5s 0.1s ease-out both',
+                }}>
+                    {leveledUp ? (
+                        <>
+                            <div style={{
+                                display: 'inline-flex', alignItems: 'center', gap: 8,
+                                background: '#FACC15', borderRadius: 99,
+                                padding: '6px 20px', marginBottom: 12,
+                                border: '2px solid #92400E',
+                                boxShadow: '0 0 24px rgba(250,204,21,0.4)',
+                            }}>
+                                <Star size={16} color="#92400E" strokeWidth={2.5} fill="#92400E" />
+                                <span style={{ fontWeight: 900, fontSize: '0.75rem', color: '#92400E', letterSpacing: '0.15em', textTransform: 'uppercase' }}>
+                                    Level Up!
+                                </span>
+                                <Star size={16} color="#92400E" strokeWidth={2.5} fill="#92400E" />
+                            </div>
+                            <h2 style={{ margin: 0, fontSize: '2.5rem', fontWeight: 900, color: '#FACC15', textTransform: 'uppercase', letterSpacing: 3, textShadow: '0 0 24px rgba(250,204,21,0.6)' }}>
+                                {displayName}
+                            </h2>
+                            <p style={{ margin: '8px 0 0', fontSize: '1.1rem', fontWeight: 700, color: '#FEF9C3' }}>
+                                Kini Level <span style={{ fontSize: '1.6rem', color: '#FACC15', fontWeight: 900 }}>{newLevel}</span>!
+                            </p>
+                        </>
+                    ) : (
+                        <>
+                            <div style={{
+                                display: 'inline-flex', alignItems: 'center', gap: 8,
+                                background: '#3B82F6', borderRadius: 99,
+                                padding: '6px 20px', marginBottom: 12,
+                                border: '2px solid #1D4ED8',
+                            }}>
+                                <Star size={14} color="#fff" strokeWidth={2.5} />
+                                <span style={{ fontWeight: 900, fontSize: '0.7rem', color: '#fff', letterSpacing: '0.15em', textTransform: 'uppercase' }}>Menang!</span>
+                            </div>
+                            <h2 style={{ margin: 0, fontSize: '2rem', fontWeight: 900, color: '#F8FAFC', textTransform: 'uppercase', letterSpacing: 2 }}>
+                                {displayName}
+                            </h2>
+                            <p style={{ margin: '8px 0 0', fontSize: '0.95rem', fontWeight: 700, color: '#94A3B8' }}>
+                                Level {newLevel}
+                            </p>
+                        </>
+                    )}
+                </div>
+
+                {/* XP Card */}
+                <div style={{
+                    background: '#0F172A',
+                    border: `2px solid ${leveledUp ? '#FACC15' : '#3B82F6'}`,
+                    borderRadius: 20,
+                    padding: '20px 24px',
+                    animation: 'popIn 0.5s 0.25s cubic-bezier(0.34,1.56,0.64,1) both',
+                }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                        <span style={{ fontSize: '0.7rem', fontWeight: 800, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.12em' }}>XP Diperoleh</span>
+                        <span style={{ fontSize: '1rem', fontWeight: 900, color: '#4ADE80' }}>+{xpGained} XP</span>
+                    </div>
+
+                    {/* XP bar */}
+                    <div style={{ marginBottom: 8 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 5 }}>
+                            <span style={{ fontSize: '0.6rem', fontWeight: 700, color: '#475569' }}>EXP</span>
+                            <span style={{ fontSize: '0.6rem', fontWeight: 700, color: '#475569' }}>{newXp}/{xpToNext}</span>
+                        </div>
+                        <div style={{ height: 10, background: '#1E293B', borderRadius: 99, overflow: 'hidden', border: '1px solid #334155' }}>
+                            <div style={{
+                                height: '100%',
+                                width: `${xpPct}%`,
+                                background: leveledUp ? 'linear-gradient(90deg,#FACC15,#F59E0B)' : 'linear-gradient(90deg,#3B82F6,#60A5FA)',
+                                borderRadius: 99,
+                                transition: 'width 1s ease',
+                            }} />
+                        </div>
+                    </div>
+
+                    {leveledUp && (
+                        <p style={{ margin: '12px 0 0', fontSize: '0.8rem', fontWeight: 700, color: '#86EFAC', textAlign: 'center' }}>
+                            ✨ HP Max naik! Serang lebih kuat!
+                        </p>
+                    )}
+                </div>
+
+                {/* CTA */}
+                <button
+                    onClick={onContinue}
+                    style={{
+                        marginTop: 20,
+                        width: '100%', padding: '16px 0',
+                        background: leveledUp ? '#FACC15' : '#3B82F6',
+                        border: '2px solid #374151',
+                        borderRadius: 16,
+                        color: leveledUp ? '#92400E' : '#fff',
+                        fontWeight: 900, fontSize: '1rem',
+                        cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '0.1em',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                        animation: 'fadeUp 0.4s 0.6s ease-out both',
+                        fontFamily: 'var(--font-nanum-pen)',
+                    }}
+                >
+                    <CheckCircle2 size={18} strokeWidth={2.5} />
+                    Lanjutkan
+                </button>
+            </div>
+        </div>
+    );
+}
+
+
 export default function BattleUI() {
     const {
         isActive, wildCreature, wildHp, wildMaxHp,
@@ -556,7 +720,7 @@ export default function BattleUI() {
     } = useBattleStore();
 
     const setMenuState = useJoystickStore(s => s.setMenuState);
-    const { capturedCreatures, nicknameCreature, addCreature } = useCreatureStore();
+    const { capturedCreatures, nicknameCreature, addCreature, grantXp } = useCreatureStore();
 
     const audioRef = useRef<HTMLAudioElement | null>(null);
     const [menuOpen, setMenuOpen] = useState(false);
@@ -568,11 +732,21 @@ export default function BattleUI() {
         target: 'enemy' | 'player' | null;
     }>({ element: null, target: null });
 
-    // UI screens: 'select' | 'battle' | 'catch_success' | 'nickname'
-    const [screen, setScreen] = useState<'select' | 'battle' | 'catch_success' | 'nickname'>('select');
+    // UI screens: 'select' | 'battle' | 'catch_success' | 'nickname' | 'levelup'
+    const [screen, setScreen] = useState<'select' | 'battle' | 'catch_success' | 'nickname' | 'levelup'>('select');
 
     // Caught creature waiting for a name
     const [justCaught, setJustCaught] = useState<PartnerCreature | null>(null);
+
+    // Level-up result state
+    const [levelUpData, setLevelUpData] = useState<{
+        creature: PartnerCreature;
+        xpGained: number;
+        leveledUp: boolean;
+        newLevel: number;
+        newXp: number;
+        xpToNext: number;
+    } | null>(null);
 
     // Audio
     useEffect(() => {
@@ -696,8 +870,39 @@ export default function BattleUI() {
             if (wildHp - dmg <= 0) {
                 setTimeout(() => {
                     setPhase('win', `${wildCreature.name} tidak bisa bertarung lagi!`);
-                    setTimeout(() => { endBattle(); setMenuState('playing'); }, 2000);
+                    // ── Grant XP on win ──
+                    if (playerCreature) {
+                        const xpGained = 10 + (wildCreature.level || 5) * 3;
+                        const result = grantXp(playerCreature.instanceId, xpGained);
+                        // Sync updated creature to Firestore (full array so restore works correctly)
+                        import('../../lib/firebase').then(({ db, auth }) => {
+                            import('firebase/firestore').then(({ doc, updateDoc }) => {
+                                const user = auth.currentUser;
+                                if (user) {
+                                    const allCreatures = useCreatureStore.getState().capturedCreatures;
+                                    const updatedCreature = allCreatures
+                                        .find(c => c.instanceId === playerCreature.instanceId);
+                                    updateDoc(doc(db, 'players', user.uid), {
+                                        capturedCreatures: allCreatures,
+                                        ...(updatedCreature ? { partner: updatedCreature } : {}),
+                                    }).catch(e => console.error('XP sync error', e));
+                                }
+                            });
+                        });
+                        setLevelUpData({
+                            creature: playerCreature,
+                            xpGained,
+                            leveledUp: result.leveledUp,
+                            newLevel: result.newLevel,
+                            newXp: result.newXp,
+                            xpToNext: result.xpToNext,
+                        });
+                        setTimeout(() => setScreen('levelup'), 600);
+                    } else {
+                        setTimeout(() => { endBattle(); setMenuState('playing'); }, 2000);
+                    }
                 }, 800);
+
             } else {
                 setTimeout(() => {
                     const wildLv = wildCreature.level || 5;
@@ -773,6 +978,18 @@ export default function BattleUI() {
                 setPhase('catch_success', `Gotcha! ${wildCreature.name} berhasil ditangkap!`);
                 addCreature(caught);
 
+                // ── Immediately save to Firestore (so refresh doesn't lose it) ──
+                import('../../lib/firebase').then(({ db, auth }) => {
+                    import('firebase/firestore').then(({ arrayUnion, doc, updateDoc }) => {
+                        const user = auth.currentUser;
+                        if (user) {
+                            updateDoc(doc(db, 'players', user.uid), {
+                                capturedCreatures: arrayUnion(caught)
+                            }).catch(e => console.error('Error saving catch to firestore', e));
+                        }
+                    });
+                }).catch(e => console.error(e));
+
                 const targetId =
                     wildCreature.id === 3 ? 'orangutan' :
                         wildCreature.id === 2 ? 'komodo' :
@@ -810,15 +1027,17 @@ export default function BattleUI() {
             nicknameCreature(justCaught.instanceId, finalNickname);
         }
 
-        // Add the caught creature to Firestore
+        // Update the captured creature in Firestore with the chosen nickname
+        // We can't use arrayUnion for updates (it would duplicate), so we replace the whole array
         import('../../lib/firebase').then(({ db, auth }) => {
-            import('firebase/firestore').then(({ arrayUnion, doc, updateDoc }) => {
+            import('firebase/firestore').then(({ doc, updateDoc }) => {
                 const user = auth.currentUser;
                 if (user) {
-                    const caughtData = { ...justCaught, nickname: finalNickname || justCaught.name };
+                    // Get the latest list from store (nickname already applied above)
+                    const allCreatures = useCreatureStore.getState().capturedCreatures;
                     updateDoc(doc(db, 'players', user.uid), {
-                        capturedCreatures: arrayUnion(caughtData)
-                    }).catch(e => console.error('Error saving catch to firestore', e));
+                        capturedCreatures: allCreatures
+                    }).catch(e => console.error('Error updating nickname in firestore', e));
                 }
             });
         }).catch(e => console.error(e));
@@ -829,6 +1048,13 @@ export default function BattleUI() {
 
     const wildAnim = phase === 'enemy_attack' ? 'attack' : 'idle';
     const playerAnim = phase === 'player_attack' ? 'attack' : 'idle';
+
+    // ── Level-up screen handler ──
+    const handleLevelUpContinue = () => {
+        setLevelUpData(null);
+        endBattle();
+        setMenuState('playing');
+    };
 
     return (
         <>
@@ -983,6 +1209,19 @@ export default function BattleUI() {
                     <NicknameScreen
                         creature={justCaught}
                         onDone={handleNicknameDone}
+                    />
+                )}
+
+                {/* ── Screen: Level Up ── */}
+                {screen === 'levelup' && levelUpData && (
+                    <LevelUpScreen
+                        creature={levelUpData.creature}
+                        xpGained={levelUpData.xpGained}
+                        leveledUp={levelUpData.leveledUp}
+                        newLevel={levelUpData.newLevel}
+                        newXp={levelUpData.newXp}
+                        xpToNext={levelUpData.xpToNext}
+                        onContinue={handleLevelUpContinue}
                     />
                 )}
             </div>

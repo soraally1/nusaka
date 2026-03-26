@@ -95,9 +95,21 @@ export default function Home() {
       if (docSnap.exists()) {
         const data = docSnap.data()
         setPlayerProfile(user.uid, data.name, true)
-        
-        // Sync partner to creature store if exists in firestore
-        if (data.partner) {
+
+        if (data.capturedCreatures && Array.isArray(data.capturedCreatures) && data.capturedCreatures.length > 0) {
+            // Restore everything atomically from Firestore — avoids duplicates
+            const partnerEntry = data.capturedCreatures.find(
+                (c: any) => c.instanceId === data.partner?.instanceId
+            ) || data.capturedCreatures[0];
+
+            useCreatureStore.setState({
+                capturedCreatures: data.capturedCreatures,
+                firstPartner: partnerEntry,
+                hasChosenPartner: true,
+                seenIds: data.capturedCreatures.map((c: any) => c.id).filter((id: number, i: number, arr: number[]) => arr.indexOf(id) === i),
+            });
+        } else if (data.partner) {
+            // No capturedCreatures yet (old accounts) — fall back to setFirstPartner
             useCreatureStore.getState().setFirstPartner(data.partner);
         }
         
@@ -155,20 +167,7 @@ export default function Home() {
         useCreatureStore.getState().reset(); // Reset creature store state
         useMissionStore.getState().clearMission(); // Clear mission store state
         
-        // Clear mission-related local storage items to prevent new accounts inheriting progress
-        const keysToRemove = [
-            'current_mission', 'mission_status', 'mission_objective',
-            'kakek_intro_complete', 'orangutan_story_watched', 'komodo_story_watched',
-            'elangjawa_story_watched', 'badak_story_watched',
-            'orangutan_mission_accepted', 'komodo_mission_accepted',
-            'elangjawa_mission_accepted', 'badak_mission_accepted',
-            'mission_alert_dismissed_orangutan', 'mission_alert_dismissed_komodo',
-            'mission_alert_dismissed_elangjawa', 'mission_alert_dismissed_badak',
-            'mission_tasks_orangutan', 'mission_tasks_komodo',
-            'mission_tasks_elangjawa', 'mission_tasks_badak'
-        ];
-        keysToRemove.forEach(k => localStorage.removeItem(k));
-        
+        // Clear local UI state only — mission/creature state is in Firestore
         setMenuState('auth'); // Go back to auth screen
         setTimeout(() => {
             finishTransition();
@@ -177,10 +176,8 @@ export default function Home() {
   }
 
   const handleMissionComplete = () => {
+    // Clear the active mission from Zustand — Firestore was already updated by the HUD auto-complete
     clearMission()
-    localStorage.removeItem('current_mission')
-    localStorage.removeItem('mission_status')
-    localStorage.removeItem('mission_objective')
     startTransition(() => {
       router.push('/npc/kakek')
     })

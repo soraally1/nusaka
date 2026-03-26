@@ -148,24 +148,14 @@ export default function DongengOrangutanPage() {
     }
 
     const handleGoToMission = async () => {
-        if (typeof window !== 'undefined') {
-            localStorage.setItem('orangutan_story_watched', 'true')
-            localStorage.setItem('current_mission', 'orangutan')
-            localStorage.setItem('mission_status', 'active')
-            localStorage.setItem('mission_objective', 'Tangkap Orang Utan di hutan barat')
-            
-            // Sync to Firestore if user is logged in
-            const user = auth.currentUser
-            if (user) {
-                try {
-                    await updateDoc(doc(db, 'players', user.uid), {
-                        mission: 'orangutan',
-                        missionStatus: 'active',
-                        missionObjective: 'Tangkap Orang Utan di hutan barat'
-                    })
-                } catch (e) {
-                    console.error('Error saving mission to Firestore:', e)
-                }
+        const user = auth.currentUser
+        if (user) {
+            try {
+                await updateDoc(doc(db, 'players', user.uid), {
+                    currentMission: 'orangutan'
+                })
+            } catch (e) {
+                console.error('Error saving mission to Firestore:', e)
             }
         }
         startTransition(() => {

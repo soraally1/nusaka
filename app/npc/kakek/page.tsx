@@ -186,29 +186,6 @@ export default function NPCKakekPage() {
         return () => window.removeEventListener('resize', checkMobile)
     }, [])
 
-    // Check if intro was completed on mount
-    useEffect(() => {
-        const introComplete = localStorage.getItem('kakek_intro_complete')
-        const currentMission = localStorage.getItem('current_mission')
-        const missionStatus = localStorage.getItem('mission_status')
-
-        if (introComplete === 'true') {
-            if (!currentMission) {
-                setDialogMode('orangutan')
-            } else if (missionStatus === 'active') {
-                setActiveMissionObjective(localStorage.getItem('mission_objective') || '')
-                setDialogMode('waiting')
-            } else if (missionStatus === 'completed') {
-                if (currentMission === 'orangutan') setDialogMode('komodo')
-                else if (currentMission === 'komodo') setDialogMode('elangjawa')
-                else if (currentMission === 'elangjawa') setDialogMode('badak')
-                else setDialogMode('done')
-            } else {
-                setDialogMode('orangutan')
-            }
-        }
-    }, [])
-
     const introDialogs = useMemo(() => [
         `Hai ${playerName || 'Petualang'}!`,
         "Wah, kamu sudah sampai di sini rupanya. Selamat datang di dunia Nusaka!",
@@ -315,35 +292,94 @@ export default function NPCKakekPage() {
             }
         }
     }
+       // Load mission state from Firestore on mount
+    useEffect(() => {
+        const loadMissionState = async () => {
+            try {
+                const { db, auth } = await import('../../../lib/firebase')
+                const { doc, getDoc } = await import('firebase/firestore')
+                const user = auth.currentUser
+                if (!user) return
+
+                const snap = await getDoc(doc(db, 'players', user.uid))
+                if (!snap.exists()) return
+
+                const data = snap.data()
+                const { kakekIntroComplete, orangutanDone, komodoDone, elangDone, badakDone, currentMission } = data
+
+                if (!kakekIntroComplete) {
+                    setDialogMode('intro')
+                } else if (!orangutanDone) {
+                    // If player is mid-mission (currentMission set) and hasn't finished — show waiting
+                    if (currentMission === 'orangutan') {
+                        setActiveMissionObjective('Tangkap Orang Utan di hutan barat')
+                        setDialogMode('waiting')
+                    } else {
+                        setDialogMode('orangutan')
+                    }
+                } else if (!komodoDone) {
+                    if (currentMission === 'komodo') {
+                        setActiveMissionObjective('Temukan jejak Naga Purba di pulau timur')
+                        setDialogMode('waiting')
+                    } else {
+                        setDialogMode('komodo')
+                    }
+                } else if (!elangDone) {
+                    if (currentMission === 'elangjawa') {
+                        setActiveMissionObjective('Temukan sarang Elang Jawa di puncak gunung')
+                        setDialogMode('waiting')
+                    } else {
+                        setDialogMode('elangjawa')
+                    }
+                } else if (!badakDone) {
+                    if (currentMission === 'badak') {
+                        setActiveMissionObjective('Temukan Badak Jawa di hutan Ujung Kulon')
+                        setDialogMode('waiting')
+                    } else {
+                        setDialogMode('badak')
+                    }
+                } else {
+                    setDialogMode('done')
+                }
+                setDialogStep(0)
+            } catch (e) {
+                console.error('Kakek loadMissionState error', e)
+            }
+        }
+        loadMissionState()
+    }, [])
 
     const handleStartStory = async () => {
-        localStorage.setItem(`${dialogMode}_story_watched`, 'true')
-        localStorage.setItem('current_mission', dialogMode)
-        localStorage.setItem('mission_status', 'active')
-        let obj = ''
-        if (dialogMode === 'orangutan') obj = 'Tangkap Orang Utan di hutan barat'
-        if (dialogMode === 'komodo') obj = 'Temukan jejak Naga Purba di pulau timur'
-        if (dialogMode === 'elangjawa') obj = 'Temukan sarang Elang Jawa di puncak gunung'
-        if (dialogMode === 'badak') obj = 'Temukan Badak Jawa di hutan Ujung Kulon'
-        localStorage.setItem('mission_objective', obj)
-        
+        try {
+            const { db, auth } = await import('../../../lib/firebase')
+            const { doc, updateDoc } = await import('firebase/firestore')
+            const user = auth.currentUser
+            if (user) {
+                const updates: Record<string, any> = { currentMission: dialogMode }
+                if (dialogMode === 'intro') updates.kakekIntroComplete = true
+                await updateDoc(doc(db, 'players', user.uid), updates)
+            }
+        } catch (e) {
+            console.error('handleStartStory Firestore error', e)
+        }
         startTransition(() => {
             router.push(`/dongeng/${dialogMode === 'elangjawa' ? 'elang' : dialogMode}`)
         })
     }
 
-    const handleAcceptMissionDirect = () => {
-        localStorage.setItem(`${dialogMode}_story_watched`, 'true')
-        localStorage.setItem('current_mission', dialogMode)
-        localStorage.setItem('mission_status', 'active')
-        let obj = ''
-        if (dialogMode === 'orangutan') obj = 'Tangkap Orang Utan di hutan barat'
-        if (dialogMode === 'komodo') obj = 'Temukan jejak Naga Purba di pulau timur'
-        if (dialogMode === 'elangjawa') obj = 'Temukan sarang Elang Jawa di puncak gunung'
-        if (dialogMode === 'badak') obj = 'Temukan Badak Jawa di hutan Ujung Kulon'
-        localStorage.setItem('mission_objective', obj)
-        localStorage.setItem(`${dialogMode}_mission_accepted`, 'true')
-        
+    const handleAcceptMissionDirect = async () => {
+        try {
+            const { db, auth } = await import('../../../lib/firebase')
+            const { doc, updateDoc } = await import('firebase/firestore')
+            const user = auth.currentUser
+            if (user) {
+                const updates: Record<string, any> = { currentMission: dialogMode }
+                if (dialogMode === 'intro') updates.kakekIntroComplete = true
+                await updateDoc(doc(db, 'players', user.uid), updates)
+            }
+        } catch (e) {
+            console.error('handleAcceptMissionDirect Firestore error', e)
+        }
         startTransition(() => {
             router.push('/')
         })

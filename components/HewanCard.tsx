@@ -26,7 +26,7 @@ const ElementIcon = ({ element, className }: { element?: string; className?: str
   return <PawPrint className={className} strokeWidth={2.5} />;
 };
 
-const PokemonCard = ({ name, level = 0, exp = 0, element, creatureType, image, isEmpty }: PokemonCardProps) => {
+const PokemonCard = ({ name, level = 1, exp = 0, element, creatureType, image, isEmpty }: PokemonCardProps) => {
   // Empty slot (Match Image Visual)
   if (isEmpty || !name) {
     return (
@@ -44,7 +44,8 @@ const PokemonCard = ({ name, level = 0, exp = 0, element, creatureType, image, i
   }
 
   const bgClass = elementBg[element || ''] || 'bg-[#FCA5A5]';
-  const expPercent = Math.min(100, exp);
+  const xpToNext = 30 + (level || 1) * 20;
+  const expPercent = Math.min(100, Math.round((exp / xpToNext) * 100));
 
   return (
     <div className="w-[340px] bg-white border-[4px] border-[#374151] rounded-[32px] p-2 pr-5 flex items-center cursor-pointer hover:-translate-y-1 hover:shadow-sm transition-all relative group shrink-0">
@@ -102,7 +103,7 @@ const PokemonCard = ({ name, level = 0, exp = 0, element, creatureType, image, i
             </div>
           </div>
           <span className="text-[10px] font-bold text-[#6B7280] leading-none mt-0.5 shrink-0">
-            {exp}/100
+            {exp}/{xpToNext}
           </span>
         </div>
       </div>

@@ -118,24 +118,14 @@ export default function DongengKomodoPage() {
     }
 
     const handleGoToMission = async () => {
-        if (typeof window !== 'undefined') {
-            localStorage.setItem('komodo_story_watched', 'true')
-            localStorage.setItem('current_mission', 'komodo')
-            localStorage.setItem('mission_status', 'active')
-            localStorage.setItem('mission_objective', 'Temukan jejak Naga Purba di pulau timur')
-            
-            // Sync to Firestore if user is logged in
-            const user = auth.currentUser
-            if (user) {
-                try {
-                    await updateDoc(doc(db, 'players', user.uid), {
-                        mission: 'komodo',
-                        missionStatus: 'active',
-                        missionObjective: 'Temukan jejak Naga Purba di pulau timur'
-                    })
-                } catch (e) {
-                    console.error('Error saving mission to Firestore:', e)
-                }
+        const user = auth.currentUser
+        if (user) {
+            try {
+                await updateDoc(doc(db, 'players', user.uid), {
+                    currentMission: 'komodo'
+                })
+            } catch (e) {
+                console.error('Error saving mission to Firestore:', e)
             }
         }
         startTransition(() => {

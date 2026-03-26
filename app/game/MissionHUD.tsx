@@ -3,13 +3,11 @@
 import { useEffect, useState } from 'react'
 import { useMissionStore } from './store'
 import { CheckCircle2, MapPin, ChevronDown, ChevronUp, Scroll } from 'lucide-react'
-import { useRouter } from 'next/navigation'
-import { useTransitionStore } from '../store/transitionStore'
-import { auth } from '../../lib/firebase'
-import { doc, getDoc, updateDoc } from 'firebase/firestore'
-import { db } from '../../lib/firebase'
+import { auth, db } from '../../lib/firebase'
+import { doc, getDoc, updateDoc, arrayUnion } from 'firebase/firestore'
 
-const MISSION_TASKS: Record<string, { id: string; label: string }[]> = {
+// ─── Mission task definitions ─────────────────────────────────────────────────
+export const MISSION_TASKS: Record<string, { id: string; label: string }[]> = {
   orangutan: [
     { id: 'find_orangutan', label: 'Temukan Orang Utan di hutan barat' },
     { id: 'battle_orangutan', label: 'Hadapi Orang Utan dalam pertarungan' },
@@ -32,85 +30,83 @@ const MISSION_TASKS: Record<string, { id: string; label: string }[]> = {
   ],
 }
 
-// Track completed tasks via localStorage
-function getCompletedTasks(mission: string): Set<string> {
+// ─── Firestore task helpers ───────────────────────────────────────────────────
+// Store completed task IDs in Firestore under missionTasks_{missionId} array
+let _cachedTasks: Record<string, Set<string>> = {}
+
+export async function completeTask(mission: string, taskId: string) {
   try {
-    const raw = localStorage.getItem(`mission_tasks_${mission}`)
-    return raw ? new Set(JSON.parse(raw)) : new Set()
-  } catch {
-    return new Set()
+    // Update in-memory cache immediately
+    if (!_cachedTasks[mission]) _cachedTasks[mission] = new Set()
+    _cachedTasks[mission].add(taskId)
+
+    // Notify HUD to refresh
+    window.dispatchEvent(new CustomEvent('mission_task_update', { detail: { mission, taskId } }))
+
+    // Write to Firestore
+    const user = auth.currentUser
+    if (user) {
+      await updateDoc(doc(db, 'players', user.uid), {
+        [`missionTasks_${mission}`]: arrayUnion(taskId),
+      })
+    }
+  } catch (e) {
+    console.error('completeTask error', e)
   }
 }
 
-// Exported helper — call this from anywhere to mark a task complete
-export function completeTask(mission: string, taskId: string) {
+async function loadCompletedTasks(mission: string): Promise<Set<string>> {
+  // Return cache if available
+  if (_cachedTasks[mission]) return _cachedTasks[mission]
+
+  const user = auth.currentUser
+  if (!user) return new Set()
+
   try {
-    const done = getCompletedTasks(mission)
-    done.add(taskId)
-    localStorage.setItem(`mission_tasks_${mission}`, JSON.stringify([...done]))
-    // Notify the HUD to re-read localStorage
-    window.dispatchEvent(new CustomEvent('mission_task_update', { detail: { mission, taskId } }))
-  } catch { /* silent */ }
+    const snap = await getDoc(doc(db, 'players', user.uid))
+    if (snap.exists()) {
+      const arr: string[] = snap.data()[`missionTasks_${mission}`] || []
+      _cachedTasks[mission] = new Set(arr)
+      return _cachedTasks[mission]
+    }
+  } catch (e) {
+    console.error('loadCompletedTasks error', e)
+  }
+  return new Set()
 }
 
+// ─── MissionHUD ───────────────────────────────────────────────────────────────
 export function MissionHUD() {
   const { currentMission, missionStatus, setMission, completeMission } = useMissionStore()
   const [isVisible, setIsVisible] = useState(false)
-  const [isCollapsed, setIsCollapsed] = useState(true) // collapsed by default on mobile
+  const [isCollapsed, setIsCollapsed] = useState(true)
   const [completedTasks, setCompletedTasks] = useState<Set<string>>(new Set())
   const [animateIn, setAnimateIn] = useState(false)
 
-  // Load mission from Firestore on mount (priority) then fallback to localStorage
+  // Load mission from Firestore on mount
   useEffect(() => {
-    const loadMission = async () => {
+    const load = async () => {
       const user = auth.currentUser
+      if (!user) return
+      try {
+        const snap = await getDoc(doc(db, 'players', user.uid))
+        if (!snap.exists()) return
+        const data = snap.data()
 
-      // Try Firestore first if user is logged in
-      if (user) {
-        try {
-          const docRef = doc(db, 'players', user.uid)
-          const docSnap = await getDoc(docRef)
-          if (docSnap.exists()) {
-            const data = docSnap.data()
-            if (data.mission && data.missionStatus) {
-              setMission(data.mission, data.missionObjective || '')
-              if (data.missionStatus === 'completed') {
-                completeMission()
-              }
-              return
-            }
-          }
-        } catch (error) {
-          console.error('Error loading mission from Firestore:', error)
+        // Determine active mission from Firestore booleans
+        if (data.currentMission && !data[getMissionDoneKey(data.currentMission)]) {
+          const objective = getMissionObjective(data.currentMission)
+          setMission(data.currentMission, objective)
+          // Also load completed tasks for this mission
+          const tasks = await loadCompletedTasks(data.currentMission)
+          setCompletedTasks(new Set(tasks))
         }
-      }
-
-      const storedMission = localStorage.getItem('current_mission')
-      const storedStatus = localStorage.getItem('mission_status') as 'inactive' | 'active' | 'completed'
-      const storedObjective = localStorage.getItem('mission_objective')
-
-      if (storedMission && storedStatus && storedObjective) {
-        setMission(storedMission, storedObjective)
-        if (storedStatus === 'completed') {
-          completeMission()
-        }
-
-        if (user) {
-          try {
-            await updateDoc(doc(db, 'players', user.uid), {
-              mission: storedMission,
-              missionStatus: storedStatus,
-              missionObjective: storedObjective,
-            })
-          } catch (e) {
-            console.error('Error syncing mission to Firestore:', e)
-          }
-        }
+      } catch (e) {
+        console.error('MissionHUD load error', e)
       }
     }
-
-    loadMission()
-  }, [setMission, completeMission])
+    load()
+  }, [setMission])
 
   // Show HUD when there's an active or completed mission
   useEffect(() => {
@@ -123,13 +119,13 @@ export function MissionHUD() {
     }
   }, [currentMission, missionStatus])
 
-  // Load completed tasks when mission changes + listen for task updates
+  // Listen for task updates
   useEffect(() => {
-    if (currentMission) {
-      setCompletedTasks(getCompletedTasks(currentMission))
-    }
-    const handler = () => {
-      if (currentMission) setCompletedTasks(getCompletedTasks(currentMission))
+    if (!currentMission) return
+    const handler = async () => {
+      _cachedTasks[currentMission] = undefined as any // invalidate cache
+      const tasks = await loadCompletedTasks(currentMission)
+      setCompletedTasks(new Set(tasks))
     }
     window.addEventListener('mission_task_update', handler)
     return () => window.removeEventListener('mission_task_update', handler)
@@ -139,19 +135,12 @@ export function MissionHUD() {
   const completedCount = tasks.filter(t => completedTasks.has(t.id)).length
   const progressPct = tasks.length > 0 ? (completedCount / tasks.length) * 100 : 0
 
-  // Auto-complete if 100% — guard against tasks.length === 0 (0/0 edge case)
+  // Auto-complete when 100%
   useEffect(() => {
-    if (progressPct >= 100 && tasks.length > 0 && missionStatus === 'active') {
+    if (progressPct >= 100 && tasks.length > 0 && missionStatus === 'active' && currentMission) {
       completeMission()
-      localStorage.setItem('mission_status', 'completed')
-      const user = auth.currentUser
-      if (user) {
-        updateDoc(doc(db, 'players', user.uid), {
-          missionStatus: 'completed'
-        }).catch(err => console.error(err))
-      }
     }
-  }, [progressPct, missionStatus, completeMission])
+  }, [progressPct, missionStatus, completeMission, currentMission, tasks.length])
 
   if (!isVisible || !currentMission) return null
 
@@ -169,13 +158,12 @@ export function MissionHUD() {
       <div
         className="absolute left-2 z-50 select-none"
         style={{
-          top: 'max(160px, 18vh)', 
+          top: 'max(160px, 18vh)',
           width: 'min(210px, calc(50vw - 8px))',
           transform: animateIn ? 'translateX(0)' : 'translateX(-120%)',
           transition: 'transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1)',
         }}
       >
-        {/* Panel */}
         <div
           className="rounded-2xl overflow-hidden"
           style={{
@@ -186,7 +174,6 @@ export function MissionHUD() {
             boxShadow: '4px 4px 0 #283618',
           }}
         >
-          {/* Header - clickable to collapse */}
           <button
             onClick={() => setIsCollapsed(c => !c)}
             className="w-full flex items-center gap-1.5 px-2 py-1.5 cursor-pointer group"
@@ -208,7 +195,6 @@ export function MissionHUD() {
             }
           </button>
 
-          {/* Collapsible body */}
           <div
             style={{
               maxHeight: isCollapsed ? 0 : '300px',
@@ -216,7 +202,6 @@ export function MissionHUD() {
               transition: 'max-height 0.35s ease',
             }}
           >
-            {/* Progress bar */}
             <div className="px-2 pt-1.5 pb-1">
               <div className="flex items-center justify-between mb-1">
                 <span className="text-[8px] font-bold text-[#606C38] uppercase tracking-wider">Prog</span>
@@ -235,10 +220,8 @@ export function MissionHUD() {
               </div>
             </div>
 
-            {/* Divider */}
             <div className="mx-2 my-1" style={{ height: 1, background: 'rgba(40,54,24,0.12)' }} />
 
-            {/* Task list */}
             <div className="px-2 pb-2 space-y-1">
               {missionStatus === 'completed' ? (
                 <div className="flex items-center gap-2 bg-[#10B981]/10 p-1.5 rounded-xl border-2 border-[#10B981]/30">
@@ -254,26 +237,15 @@ export function MissionHUD() {
                     <div
                       key={task.id}
                       className="flex items-start gap-1.5 group"
-                      style={{
-                        opacity: done ? 0.55 : 1,
-                        transition: 'opacity 0.3s ease',
-                      }}
+                      style={{ opacity: done ? 0.55 : 1, transition: 'opacity 0.3s ease' }}
                     >
                       <div className="flex-shrink-0 mt-0.5">
                         {done ? (
-                          <CheckCircle2
-                            size={14}
-                            style={{ color: '#10B981' }}
-                          />
+                          <CheckCircle2 size={14} style={{ color: '#10B981' }} />
                         ) : (
                           <div
                             className="flex items-center justify-center rounded-full"
-                            style={{
-                              width: 14,
-                              height: 14,
-                              border: '2px solid #BC6C25',
-                              background: 'transparent',
-                            }}
+                            style={{ width: 14, height: 14, border: '2px solid #BC6C25', background: 'transparent' }}
                           >
                             <span style={{ fontSize: 7, fontWeight: 900, color: '#BC6C25', lineHeight: 1 }}>
                               {idx + 1}
@@ -308,37 +280,41 @@ export function MissionHUD() {
           </div>
         </div>
       </div>
-
-      {/* Mission Complete Overlay is separate */}
     </>
   )
 }
 
+// ─── MissionCompleteOverlay ───────────────────────────────────────────────────
+// ─── MissionCompleteOverlay ───────────────────────────────────────────────────
 export function MissionCompleteOverlay({ onClose }: { onClose: () => void }) {
   const { currentMission, missionStatus } = useMissionStore()
-  const [hasDismissed, setHasDismissed] = useState(true) // assume dismissed initially to prevent flash
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
-  useEffect(() => {
-    if (currentMission && missionStatus === 'completed') {
-      const dismissed = localStorage.getItem(`mission_alert_dismissed_${currentMission}`)
-      setHasDismissed(dismissed === 'true')
+  if (missionStatus !== 'completed' || !currentMission) return null
+
+  const handleLapor = async () => {
+    setIsSubmitting(true)
+    const user = auth.currentUser
+    if (user && currentMission) {
+      try {
+        await updateDoc(doc(db, 'players', user.uid), {
+          [getMissionDoneKey(currentMission)]: true,
+          currentMission: null,
+        })
+      } catch (e) {
+        console.error('Final mission update error:', e)
+      }
     }
-  }, [currentMission, missionStatus])
-
-  if (missionStatus !== 'completed' || hasDismissed || !currentMission) return null
-
-  const handleNext = () => {
-    setHasDismissed(true)
-    localStorage.setItem(`mission_alert_dismissed_${currentMission}`, 'true')
+    setIsSubmitting(false)
     if (onClose) onClose()
   }
 
-  const defaultDesc = 'Kamu berhasil menyelesaikan misi ini. Segera temui dan laporkan ke Kakek Nusaka!'
-  let desc = defaultDesc
-  if (currentMission === 'orangutan') desc = 'Kamu berhasil menemukan dan melindungi Orang Utan. Segera lapor ke Kakek Nusaka untuk tugas selanjutnya!'
-  if (currentMission === 'komodo') desc = 'Kamu berhasil menelusuri jejak Naga Timur. Temui Kakek Nusaka tentang keberhasilanmu!'
-  if (currentMission === 'elangjawa') desc = 'Kamu berhasil menolong penguasa langit biru. Kabari Kakek Nusaka atas pencapaian ini.'
-  if (currentMission === 'badak') desc = 'Makhluk bercula satu ini kini aman dari ancaman perburuan! Temui Kakek Nusaka untuk sebuah penghargaan.'
+  const desc: Record<string, string> = {
+    orangutan: 'Kamu berhasil menemukan dan melindungi Orang Utan. Segera lapor ke Kakek Nusaka untuk tugas selanjutnya!',
+    komodo: 'Kamu berhasil menelusuri jejak Naga Timur. Temui Kakek Nusaka tentang keberhasilanmu!',
+    elangjawa: 'Kamu berhasil menolong penguasa langit biru. Kabari Kakek Nusaka atas pencapaian ini.',
+    badak: 'Makhluk bercula satu ini kini aman dari ancaman perburuan! Temui Kakek Nusaka untuk sebuah penghargaan.',
+  }
 
   return (
     <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 pointer-events-auto">
@@ -351,16 +327,38 @@ export function MissionCompleteOverlay({ onClose }: { onClose: () => void }) {
             Misi Selesai!
           </h2>
           <p className="text-[#5C4033] mb-6">
-            {desc}
+            {desc[currentMission] || 'Kamu berhasil menyelesaikan misi ini. Segera temui dan laporkan ke Kakek Nusaka!'}
           </p>
           <button
-            onClick={handleNext}
-            className="w-full py-3 bg-[#BC6C25] hover:bg-[#A05A1F] text-[#FEFAE0] font-bold rounded-xl border-4 border-[#283618] transition-all cursor-pointer"
+            onClick={handleLapor}
+            disabled={isSubmitting}
+            className="w-full py-3 bg-[#BC6C25] hover:bg-[#A05A1F] disabled:opacity-50 text-[#FEFAE0] font-bold rounded-xl border-4 border-[#283618] transition-all cursor-pointer"
           >
-            Lanjutkan Penjelajahan
+            {isSubmitting ? 'Menyimpan...' : 'Lapor ke Kakek'}
           </button>
         </div>
       </div>
     </div>
   )
+}
+
+// ─── Helper utilities (shared) ────────────────────────────────────────────────
+export function getMissionDoneKey(mission: string): string {
+  const map: Record<string, string> = {
+    orangutan: 'orangutanDone',
+    komodo: 'komodoDone',
+    elangjawa: 'elangDone',
+    badak: 'badakDone',
+  }
+  return map[mission] || `${mission}Done`
+}
+
+export function getMissionObjective(mission: string): string {
+  const map: Record<string, string> = {
+    orangutan: 'Tangkap Orang Utan di hutan barat',
+    komodo: 'Temukan jejak Naga Purba di pulau timur',
+    elangjawa: 'Temukan sarang Elang Jawa di puncak gunung',
+    badak: 'Temukan Badak Jawa di hutan Ujung Kulon',
+  }
+  return map[mission] || ''
 }

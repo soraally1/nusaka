@@ -24,19 +24,7 @@ export default function CharacterSelectionOverlay() {
         setMenuState('auth');
         useCreatureStore.getState().reset();
         
-        // Clear mission-related local storage items
-        const keysToRemove = [
-            'current_mission', 'mission_status', 'mission_objective',
-            'kakek_intro_complete', 'orangutan_story_watched', 'komodo_story_watched',
-            'elangjawa_story_watched', 'badak_story_watched',
-            'orangutan_mission_accepted', 'komodo_mission_accepted',
-            'elangjawa_mission_accepted', 'badak_mission_accepted',
-            'mission_alert_dismissed_orangutan', 'mission_alert_dismissed_komodo',
-            'mission_alert_dismissed_elangjawa', 'mission_alert_dismissed_badak',
-            'mission_tasks_orangutan', 'mission_tasks_komodo',
-            'mission_tasks_elangjawa', 'mission_tasks_badak'
-        ];
-        keysToRemove.forEach(k => localStorage.removeItem(k));
+        // Mission state is in Firestore
     }
 
     const handleEnterGame = () => {

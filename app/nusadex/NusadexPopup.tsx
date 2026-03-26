@@ -195,8 +195,14 @@ export default function NusadexPopup() {
                             </Suspense>
                           </div>
                           <h3 className="text-[26px] text-[#374151] font-black mt-3 text-center truncate w-full tracking-wide">
-                            {creature.name}
+                            {creature.nickname || creature.name}
                           </h3>
+                          <div className="flex items-center justify-center gap-2 mt-1">
+                            <span className="text-base font-black text-[#374151] bg-[#FEF08A] border-[2px] border-[#374151] px-2 py-0.5 rounded-lg shadow-[1px_1px_0_#374151]">
+                              Lv.{creature.level || 1}
+                            </span>
+                            <span className="text-xs font-bold text-[#374151]/50">EXP {creature.exp}/{30 + (creature.level || 1) * 20}</span>
+                          </div>
                         </div>
                       );
                     })}
@@ -248,16 +254,16 @@ export default function NusadexPopup() {
                 <div className="mb-6 px-1">
                   <div className="flex justify-between items-end mb-1">
                     <span className="text-4xl font-black text-[#374151]">
-                      Level {selectedCreature.level}
+                      Level {selectedCreature.level || 1}
                     </span>
                     <span className="text-2xl text-[#374151] font-bold opacity-80 mt-2">
-                      EXP {selectedCreature.exp}/100
+                      EXP {selectedCreature.exp}/{30 + (selectedCreature.level || 1) * 20}
                     </span>
                   </div>
                   <div className="w-full h-5 bg-white border-[3px] border-[#374151] rounded-full overflow-hidden shadow-[inset_0_2px_4px_rgba(0,0,0,0.1)]">
                     <div
                       className="h-full bg-[#4ADE80] border-r-[3px] border-[#374151]"
-                      style={{ width: `${selectedCreature.exp}%` }}
+                      style={{ width: `${Math.min(100, Math.round(((selectedCreature.exp || 0) / (30 + (selectedCreature.level || 1) * 20)) * 100))}%` }}
                     />
                   </div>
                 </div>

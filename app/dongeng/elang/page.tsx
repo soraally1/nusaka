@@ -118,24 +118,14 @@ export default function DongengElangPage() {
     }
 
     const handleGoToMission = async () => {
-        if (typeof window !== 'undefined') {
-            localStorage.setItem('elangja_story_watched', 'true')
-            localStorage.setItem('current_mission', 'elangjawa')
-            localStorage.setItem('mission_status', 'active')
-            localStorage.setItem('mission_objective', 'Temukan sarang Elang Jawa di puncak gunung')
-            
-            // Sync to Firestore if user is logged in
-            const user = auth.currentUser
-            if (user) {
-                try {
-                    await updateDoc(doc(db, 'players', user.uid), {
-                        mission: 'elangjawa',
-                        missionStatus: 'active',
-                        missionObjective: 'Temukan sarang Elang Jawa di puncak gunung'
-                    })
-                } catch (e) {
-                    console.error('Error saving mission to Firestore:', e)
-                }
+        const user = auth.currentUser
+        if (user) {
+            try {
+                await updateDoc(doc(db, 'players', user.uid), {
+                    currentMission: 'elangjawa'
+                })
+            } catch (e) {
+                console.error('Error saving mission to Firestore:', e)
             }
         }
         startTransition(() => {

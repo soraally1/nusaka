@@ -17,6 +17,7 @@ export interface CreatureState {
     nicknameCreature: (instanceId: string, nickname: string) => void;
     setFirstPartner: (creature: Omit<PartnerCreature, 'instanceId'> & { instanceId?: string }) => void;
     markAsSeen: (id: number) => void;
+    grantXp: (instanceId: string, xpAmount: number) => { leveledUp: boolean; newLevel: number; newXp: number; xpToNext: number };
     reset: () => void;
 }
 
@@ -77,6 +78,33 @@ export const useCreatureStore = create<CreatureState>()(
                         ? state.seenIds
                         : [...state.seenIds, id],
                 })),
+            grantXp: (instanceId, xpAmount) => {
+                // XP needed to reach next level: 30 + level * 20
+                const xpToNext = (level: number) => 30 + level * 20;
+                let result = { leveledUp: false, newLevel: 1, newXp: 0, xpToNext: 50 };
+                set((state) => {
+                    const update = (c: PartnerCreature): PartnerCreature => {
+                        if (c.instanceId !== instanceId) return c;
+                        let level = c.level || 1;
+                        let xp = (c.exp || 0) + xpAmount;
+                        let leveledUp = false;
+                        while (xp >= xpToNext(level)) {
+                            xp -= xpToNext(level);
+                            level++;
+                            leveledUp = true;
+                        }
+                        result = { leveledUp, newLevel: level, newXp: xp, xpToNext: xpToNext(level) };
+                        return { ...c, level, exp: xp };
+                    };
+                    return {
+                        capturedCreatures: state.capturedCreatures.map(update),
+                        firstPartner: state.firstPartner?.instanceId === instanceId
+                            ? update(state.firstPartner)
+                            : state.firstPartner,
+                    };
+                });
+                return result;
+            },
             reset: () => set({
                 capturedCreatures: [],
                 firstPartner: null,

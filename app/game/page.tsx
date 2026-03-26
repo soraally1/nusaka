@@ -13,9 +13,6 @@ export default function GamePage() {
 
   const handleMissionComplete = () => {
     clearMission()
-    localStorage.removeItem('current_mission')
-    localStorage.removeItem('mission_status')
-    localStorage.removeItem('mission_objective')
     router.push('/npc/kakek')
   }
 
