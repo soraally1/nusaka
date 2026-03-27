@@ -194,7 +194,7 @@ function CreatureSelectorScreen({
                                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
                                     <ElementBadge element={current.element} />
                                     <span style={{ fontSize: '0.65rem', fontWeight: 800, background: '#FEF08A', color: '#374151', padding: '1px 8px', borderRadius: 8, border: '1.5px solid #374151' }}>
-                                        Lv.{current.level || 1}
+                                        Lv.{current.level}
                                     </span>
                                 </div>
                             </div>
@@ -554,6 +554,7 @@ function LevelUpScreen({
     newLevel,
     newXp,
     xpToNext,
+    title,
     onContinue,
 }: {
     creature: PartnerCreature;
@@ -562,6 +563,7 @@ function LevelUpScreen({
     newLevel: number;
     newXp: number;
     xpToNext: number;
+    title?: string;
     onContinue: () => void;
 }) {
     const [show, setShow] = useState(false);
@@ -577,7 +579,9 @@ function LevelUpScreen({
             fontFamily: 'var(--font-nanum-pen)',
             background: leveledUp
                 ? 'radial-gradient(ellipse at 50% 40%, #1a2a0a 0%, #0a0a0a 100%)'
-                : 'radial-gradient(ellipse at 50% 40%, #0a1a2a 0%, #050505 100%)',
+                : title === 'Kalah'
+                    ? 'radial-gradient(ellipse at 50% 40%, #3a0a0a 0%, #0a0a0a 100%)'
+                    : 'radial-gradient(ellipse at 50% 40%, #0a1a2a 0%, #050505 100%)',
             overflow: 'hidden',
             opacity: show ? 1 : 0,
             transition: 'opacity 0.3s ease',
@@ -636,14 +640,16 @@ function LevelUpScreen({
                                 border: '2px solid #1D4ED8',
                             }}>
                                 <Star size={14} color="#fff" strokeWidth={2.5} />
-                                <span style={{ fontWeight: 900, fontSize: '0.7rem', color: '#fff', letterSpacing: '0.15em', textTransform: 'uppercase' }}>Menang!</span>
-                            </div>
-                            <h2 style={{ margin: 0, fontSize: '2rem', fontWeight: 900, color: '#F8FAFC', textTransform: 'uppercase', letterSpacing: 2 }}>
-                                {displayName}
-                            </h2>
-                            <p style={{ margin: '8px 0 0', fontSize: '0.95rem', fontWeight: 700, color: '#94A3B8' }}>
-                                Level {newLevel}
-                            </p>
+                                  <span style={{ fontWeight: 900, fontSize: '0.7rem', color: '#fff', letterSpacing: '0.15em', textTransform: 'uppercase' }}>
+                                    {title || 'Menang!'}
+                                  </span>
+                                </div>
+                                <h2 style={{ margin: 0, fontSize: '2rem', fontWeight: 900, color: '#F8FAFC', textTransform: 'uppercase', letterSpacing: 2 }}>
+                                    {displayName}
+                                </h2>
+                                <p style={{ margin: '8px 0 0', fontSize: '0.95rem', fontWeight: 700, color: title === 'Kalah' ? '#FCA5A5' : '#94A3B8' }}>
+                                    {title === 'Kalah' ? 'Berusahalah!' : `Level ${newLevel}`}
+                                </p>
                         </>
                     )}
                 </div>
@@ -746,7 +752,8 @@ export default function BattleUI() {
         newLevel: number;
         newXp: number;
         xpToNext: number;
-    } | null>(null);
+        title: string;
+} | null>(null);
 
     // Audio
     useEffect(() => {
@@ -872,34 +879,34 @@ export default function BattleUI() {
                     setPhase('win', `${wildCreature.name} tidak bisa bertarung lagi!`);
                     // ── Grant XP on win ──
                     if (playerCreature) {
-                        const xpGained = 10 + (wildCreature.level || 5) * 3;
+                        const xpGained = 50 + (wildCreature.level || 5) * 10;
                         const result = grantXp(playerCreature.instanceId, xpGained);
-                        // Sync updated creature to Firestore (full array so restore works correctly)
+                        const finalCr = result.updatedCreature || playerCreature;
+                        setPlayerCreature(finalCr);
+
                         import('../../lib/firebase').then(({ db, auth }) => {
                             import('firebase/firestore').then(({ doc, updateDoc }) => {
                                 const user = auth.currentUser;
                                 if (user) {
-                                    const allCreatures = useCreatureStore.getState().capturedCreatures;
-                                    const updatedCreature = allCreatures
-                                        .find(c => c.instanceId === playerCreature.instanceId);
+                                    const latestAll = useCreatureStore.getState().capturedCreatures;
                                     updateDoc(doc(db, 'players', user.uid), {
-                                        capturedCreatures: allCreatures,
-                                        ...(updatedCreature ? { partner: updatedCreature } : {}),
+                                        capturedCreatures: latestAll,
+                                        partner: finalCr,
                                     }).catch(e => console.error('XP sync error', e));
                                 }
                             });
                         });
+
                         setLevelUpData({
-                            creature: playerCreature,
+                            creature: finalCr as PartnerCreature,
                             xpGained,
                             leveledUp: result.leveledUp,
                             newLevel: result.newLevel,
                             newXp: result.newXp,
                             xpToNext: result.xpToNext,
+                            title: 'Menang',
                         });
                         setTimeout(() => setScreen('levelup'), 600);
-                    } else {
-                        setTimeout(() => { endBattle(); setMenuState('playing'); }, 2000);
                     }
                 }, 800);
 
@@ -916,7 +923,39 @@ export default function BattleUI() {
                         if (playerHp - eDmg <= 0) {
                             setTimeout(() => {
                                 setPhase('flee', 'Kamu pingsan! Mundur dulu...');
-                                setTimeout(() => { endBattle(); setMenuState('playing'); }, 2000);
+                                // Grant small "try again" XP even for fainting
+                                if (playerCreature) {
+                                  const xpGained = 20 + (wildCreature.level || 5) * 2; // pieces of XP as a try again reward
+                                  const result = grantXp(playerCreature.instanceId, xpGained);
+                                  const finalCr = result.updatedCreature || playerCreature;
+                                  
+                                  setLevelUpData({
+                                    creature: finalCr as PartnerCreature,
+                                    xpGained,
+                                    leveledUp: result.leveledUp,
+                                    newLevel: result.newLevel,
+                                    newXp: result.newXp,
+                                    xpToNext: result.xpToNext,
+                                    title: 'Kalah',
+                                  });
+                                  
+                                  import('../../lib/firebase').then(({ db, auth }) => {
+                                    import('firebase/firestore').then(({ doc, updateDoc }) => {
+                                      const user = auth.currentUser;
+                                      if (user) {
+                                        const latestAll = useCreatureStore.getState().capturedCreatures;
+                                        updateDoc(doc(db, 'players', user.uid), {
+                                          capturedCreatures: latestAll,
+                                          partner: finalCr,
+                                        }).catch(e => console.error('XP faint sync error', e));
+                                      }
+                                    });
+                                  });
+                                  
+                                  setTimeout(() => setScreen('levelup'), 1500);
+                                } else {
+                                  setTimeout(() => { endBattle(); setMenuState('playing'); }, 2000);
+                                }
                             }, 800);
                         } else {
                             setTimeout(() => {
@@ -978,14 +1017,38 @@ export default function BattleUI() {
                 setPhase('catch_success', `Gotcha! ${wildCreature.name} berhasil ditangkap!`);
                 addCreature(caught);
 
-                // ── Immediately save to Firestore (so refresh doesn't lose it) ──
+                // ── Grant XP even for catch as requested ──
+                let finalPlayerCr = playerCreature;
+                const xpGained = playerCreature ? (40 + (wildCreature.level || 5) * 8) : 0;
+                
+                if (playerCreature) {
+                    const result = grantXp(playerCreature.instanceId, xpGained);
+                    if (result.updatedCreature) {
+                        finalPlayerCr = result.updatedCreature;
+                        setPlayerCreature(finalPlayerCr);
+                    }
+                    
+                    setLevelUpData({
+                        creature: finalPlayerCr as PartnerCreature,
+                        xpGained,
+                        leveledUp: result.leveledUp,
+                        newLevel: result.newLevel,
+                        newXp: result.newXp,
+                        xpToNext: result.xpToNext,
+                        title: 'Tangkap',
+                    });
+                }
+
+                // ── Sync BOTH to Firestore ──
                 import('../../lib/firebase').then(({ db, auth }) => {
-                    import('firebase/firestore').then(({ arrayUnion, doc, updateDoc }) => {
+                    import('firebase/firestore').then(({ doc, updateDoc }) => {
                         const user = auth.currentUser;
                         if (user) {
+                            const latestAll = useCreatureStore.getState().capturedCreatures;
                             updateDoc(doc(db, 'players', user.uid), {
-                                capturedCreatures: arrayUnion(caught)
-                            }).catch(e => console.error('Error saving catch to firestore', e));
+                                capturedCreatures: latestAll,
+                                partner: finalPlayerCr || playerCreature,
+                            }).catch(e => console.error('Error saving catch/XP to firestore', e));
                         }
                     });
                 }).catch(e => console.error(e));
@@ -1015,7 +1078,40 @@ export default function BattleUI() {
     const handleRun = () => {
         setMenuOpen(false);
         setPhase('flee', 'Berhasil melarikan diri!');
-        setTimeout(() => { endBattle(); setMenuState('playing'); }, 1500);
+        
+        // Grant very small "try" XP even for running
+        if (playerCreature) {
+            const xpGained = 10 + (wildCreature.level || 5);
+            const result = grantXp(playerCreature.instanceId, xpGained);
+            const finalCr = result.updatedCreature || playerCreature;
+            
+            setLevelUpData({
+                creature: finalCr as PartnerCreature,
+                xpGained,
+                leveledUp: result.leveledUp,
+                newLevel: result.newLevel,
+                newXp: result.newXp,
+                xpToNext: result.xpToNext,
+                title: 'Kabur',
+            });
+
+            import('../../lib/firebase').then(({ db, auth }) => {
+                import('firebase/firestore').then(({ doc, updateDoc }) => {
+                    const user = auth.currentUser;
+                    if (user) {
+                        const latestAll = useCreatureStore.getState().capturedCreatures;
+                        updateDoc(doc(db, 'players', user.uid), {
+                            capturedCreatures: latestAll,
+                            partner: finalCr,
+                        }).catch(e => console.error('XP run sync error', e));
+                    }
+                });
+            });
+
+            setTimeout(() => setScreen('levelup'), 1500);
+        } else {
+            setTimeout(() => { endBattle(); setMenuState('playing'); }, 1500);
+        }
     };
 
     // ── Nickname done ──
@@ -1033,7 +1129,6 @@ export default function BattleUI() {
             import('firebase/firestore').then(({ doc, updateDoc }) => {
                 const user = auth.currentUser;
                 if (user) {
-                    // Get the latest list from store (nickname already applied above)
                     const allCreatures = useCreatureStore.getState().capturedCreatures;
                     updateDoc(doc(db, 'players', user.uid), {
                         capturedCreatures: allCreatures
@@ -1042,8 +1137,13 @@ export default function BattleUI() {
             });
         }).catch(e => console.error(e));
 
-        endBattle();
-        setMenuState('playing');
+        // If we have levelUpData (from the handleCatch XP grant), show the indicator
+        if (levelUpData) {
+          setScreen('levelup');
+        } else {
+          endBattle();
+          setMenuState('playing');
+        }
     };
 
     const wildAnim = phase === 'enemy_attack' ? 'attack' : 'idle';
@@ -1221,6 +1321,7 @@ export default function BattleUI() {
                         newLevel={levelUpData.newLevel}
                         newXp={levelUpData.newXp}
                         xpToNext={levelUpData.xpToNext}
+                        title={levelUpData.title}
                         onContinue={handleLevelUpContinue}
                     />
                 )}

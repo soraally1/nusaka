@@ -106,7 +106,8 @@ export default function Home() {
                 capturedCreatures: data.capturedCreatures,
                 firstPartner: partnerEntry,
                 hasChosenPartner: true,
-                seenIds: data.capturedCreatures.map((c: any) => c.id).filter((id: number, i: number, arr: number[]) => arr.indexOf(id) === i),
+                seenIds: data.seenIds || 
+                         data.capturedCreatures.map((c: any) => c.id).filter((id: number, i: number, arr: number[]) => arr.indexOf(id) === i),
             });
         } else if (data.partner) {
             // No capturedCreatures yet (old accounts) — fall back to setFirstPartner

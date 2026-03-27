@@ -71,6 +71,18 @@ export default function NusadexPopup() {
     setSelectedCreature(creature);
     setView("detail");
     markAsSeen(creature.id);
+
+    // Sync seen status to Firestore
+    import("../../lib/firebase").then(({ db, auth }) => {
+      import("firebase/firestore").then(({ doc, updateDoc, arrayUnion }) => {
+        const user = auth.currentUser;
+        if (user) {
+          updateDoc(doc(db, "players", user.uid), {
+            seenIds: arrayUnion(creature.id),
+          }).catch((e) => console.error("Error syncing seenId", e));
+        }
+      });
+    });
   };
 
   // Lazy load only after first interaction to save initial page load performance
