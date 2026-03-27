@@ -65,6 +65,7 @@ export default function Home() {
           startMinigame();
           useJoystickStore.getState().setMenuState('batu_quiz');
         } else if (useJoystickStore.getState().nearbyNPC) {
+          sessionStorage.setItem('npc_gate', '1');
           startTransition(() => {
             router.push('/npc/kakek');
           });
@@ -179,6 +180,7 @@ export default function Home() {
   const handleMissionComplete = () => {
     // Clear the active mission from Zustand — Firestore was already updated by the HUD auto-complete
     clearMission()
+    sessionStorage.setItem('npc_gate', '1');
     startTransition(() => {
       router.push('/npc/kakek')
     })
@@ -354,7 +356,7 @@ export default function Home() {
       {menuState === 'playing' && !nearbyCreature && nearbyStoneId === null && nearbyNPC && (
         <div className="absolute bottom-48 md:bottom-12 left-1/2 -translate-x-1/2 z-40 pointer-events-auto w-full sm:w-auto flex justify-center px-6 sm:px-0">
           <button
-            onClick={() => startTransition(() => router.push('/npc/kakek'))}
+            onClick={() => { sessionStorage.setItem('npc_gate', '1'); startTransition(() => router.push('/npc/kakek')); }}
             className="flex items-center justify-center gap-4 bg-[#FCD34D] hover:bg-[#FBBF24] border-4 border-[#92400E] w-full max-w-[340px] md:w-auto px-6 py-2 md:px-8 md:py-4 rounded-[24px] md:rounded-[32px] shadow-[6px_6px_0_#92400E] md:shadow-[4px_4px_0_#92400E] hover:-translate-y-1 transition-transform"
           >
             <UserAvatar className="w-8 h-8 md:w-8 md:h-8 text-[#92400E]" strokeWidth={2} />

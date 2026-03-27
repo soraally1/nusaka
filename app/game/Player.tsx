@@ -103,6 +103,7 @@ function MinimapGlobe({
 }) {
   const globeRef = useRef<THREE.Mesh>(null);
   const blipRef = useRef<THREE.Mesh>(null);
+  const npcBlipRef = useRef<THREE.Mesh>(null);
 
   const treeMeshRef = useRef<THREE.InstancedMesh>(null);
   const animalMeshRef = useRef<THREE.InstancedMesh>(null);
@@ -145,6 +146,11 @@ function MinimapGlobe({
       });
       stoneMeshRef.current.instanceMatrix.needsUpdate = true;
     }
+
+    // NPC Kakek marker — static position relative to globe surface
+    if (npcBlipRef.current) {
+      npcBlipRef.current.position.copy(NPC_DATA.position).normalize().multiplyScalar(1.04);
+    }
   }, []);
 
   useFrame(() => {
@@ -160,7 +166,9 @@ function MinimapGlobe({
     _miniCamRight.crossVectors(_miniCamFwd, _miniPlayerDir).normalize();
 
     _miniMatrix.makeBasis(_miniCamRight, _miniCamFwd, _miniPlayerDir);
-    globeRef.current.quaternion.setFromRotationMatrix(_miniMatrix).invert();
+    if (globeRef.current) {
+        globeRef.current.quaternion.setFromRotationMatrix(_miniMatrix).invert();
+    }
 
     blipRef.current.position.set(0, 0, 1.15);
     blipRef.current.rotation.set(-Math.PI / 2, 0, 0);
@@ -217,6 +225,12 @@ function MinimapGlobe({
             <boxGeometry args={[0.08, 0.08, 0.08]} />
             <meshBasicMaterial color="#FF5722" />
           </instancedMesh>
+
+          {/* NPC Kakek Marker — static child of globeRef */}
+          <mesh ref={npcBlipRef}>
+            <sphereGeometry args={[0.08, 16, 16]} />
+            <meshBasicMaterial color="#FFD700" />
+          </mesh>
         </mesh>
 
         <mesh ref={blipRef}>
