@@ -1,7 +1,7 @@
 import React, { useRef, useEffect, useMemo, useState } from 'react'
 import * as THREE from 'three'
 import { useFrame } from '@react-three/fiber'
-import { useGLTF, useAnimations } from '@react-three/drei'
+import { useGLTF, useAnimations, Html } from '@react-three/drei'
 import { SkeletonUtils } from 'three-stdlib'
 
 // Shared LOD tools - only render what is in camera view
@@ -52,6 +52,10 @@ export function NPC({ path, position, normal, rotationY, scale = 1, playerRef }:
     const groupRef = useRef<THREE.Group>(null)
     const currentAction = useRef<string>('')
 
+    // Track proximity for "!" indicator — only triggers setState on transition
+    const [isNear, setIsNear] = useState(false)
+    const prevIsNear = useRef(false)
+
     useFrame((state) => {
         if (!groupRef.current) return;
 
@@ -74,6 +78,13 @@ export function NPC({ path, position, normal, rotationY, scale = 1, playerRef }:
                 next.reset().fadeIn(0.5).play();
             }
             currentAction.current = targetAction;
+        }
+
+        // Update "!" indicator — only call setState on state transition to avoid re-renders every frame
+        const nowNear = distSq < 20 * 20;
+        if (nowNear !== prevIsNear.current) {
+            prevIsNear.current = nowNear;
+            setIsNear(nowNear);
         }
 
         // LOD: Only render if model is in camera view (pandangan kamera) OR very close
@@ -108,11 +119,65 @@ export function NPC({ path, position, normal, rotationY, scale = 1, playerRef }:
         return q
     }, [normal])
 
+    // Height offset for the "!" bubble above NPC's head (in local space, after surface orientation)
+    const exclamationOffset: [number, number, number] = [0, scale * 4.5, 0]
+
     return (
         <group ref={groupRef} position={position} quaternion={quaternion}>
             <group rotation-y={rotationY} scale={scale}>
                 <primitive ref={ref} object={clone} />
             </group>
+
+            {/* Floating "!" indicator — appears when player is within 20m */}
+            {isNear && (
+                <Html
+                    position={exclamationOffset}
+                    center
+                    zIndexRange={[10, 0]}
+                    distanceFactor={12}
+                    occlude={false}
+                    style={{ pointerEvents: 'none', userSelect: 'none' }}
+                >
+                    <div
+                        style={{
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            gap: '2px',
+                            animation: 'npc-bounce 0.7s ease-in-out infinite alternate',
+                        }}
+                    >
+                        <div
+                            style={{
+                                fontSize: '28px',
+                                fontWeight: 900,
+                                color: '#FFD700',
+                                textShadow: '0 0 6px #92400E, 2px 2px 0 #283618',
+                                lineHeight: 1,
+                                fontFamily: 'Arial Black, sans-serif',
+                            }}
+                        >
+                            !
+                        </div>
+                        <div
+                            style={{
+                                width: 0,
+                                height: 0,
+                                borderLeft: '6px solid transparent',
+                                borderRight: '6px solid transparent',
+                                borderTop: '8px solid #FFD700',
+                                filter: 'drop-shadow(0 1px 2px #283618)',
+                            }}
+                        />
+                    </div>
+                    <style>{`
+                        @keyframes npc-bounce {
+                            from { transform: translateY(0px); }
+                            to   { transform: translateY(-8px); }
+                        }
+                    `}</style>
+                </Html>
+            )}
         </group>
     )
 }

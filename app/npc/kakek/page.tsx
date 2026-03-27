@@ -175,16 +175,32 @@ export default function NPCKakekPage() {
     const [activeMissionObjective, setActiveMissionObjective] = useState('')
     const [showMissionOptions, setShowMissionOptions] = useState(false)
     const [isMobile, setIsMobile] = useState(false)
+    const [isAuthorized, setIsAuthorized] = useState(false)
+
+    // ─── Route Guard ───────────────────────────────────────────────────────────
+    // Page can ONLY be accessed via game interaction (sets sessionStorage token).
+    // Direct URL access (manual typing, fresh tab) will redirect to home.
+    useEffect(() => {
+        const token = sessionStorage.getItem('npc_gate')
+        if (!token) {
+            router.replace('/')
+            return
+        }
+        // Consume the token — one-time use only
+        sessionStorage.removeItem('npc_gate')
+        setIsAuthorized(true)
+    }, [router])
 
     // Check mobile on mount
     useEffect(() => {
+        if (!isAuthorized) return
         const checkMobile = () => {
             setIsMobile(window.innerWidth < 768)
         }
         checkMobile()
         window.addEventListener('resize', checkMobile)
         return () => window.removeEventListener('resize', checkMobile)
-    }, [])
+    }, [isAuthorized])
 
     const introDialogs = useMemo(() => [
         `Hai ${playerName || 'Petualang'}!`,
@@ -294,6 +310,7 @@ export default function NPCKakekPage() {
     }
        // Load mission state from Firestore on mount
     useEffect(() => {
+        if (!isAuthorized) return
         const loadMissionState = async () => {
             try {
                 const { db, auth } = await import('../../../lib/firebase')
@@ -347,7 +364,7 @@ export default function NPCKakekPage() {
             }
         }
         loadMissionState()
-    }, [])
+    }, [isAuthorized])
 
     const handleStartStory = async () => {
         try {
@@ -390,6 +407,9 @@ export default function NPCKakekPage() {
             router.push('/')
         })
     }
+
+    // Don't render anything until route authorization is confirmed
+    if (!isAuthorized) return null
 
     return (
         <div className="relative w-screen h-screen overflow-hidden bg-[#87CEEB]">

@@ -3,7 +3,7 @@
 import React, { useEffect, useState, Suspense } from 'react';
 import { useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
-import { Loader2, Sparkles, PawPrint, Star, Wind, Leaf, Droplets, Shield, MapPin, Plus } from 'lucide-react';
+import { Loader2, Sparkles, PawPrint, Star, Wind, Leaf, Droplets, Shield, MapPin, Plus, MoveLeft } from 'lucide-react';
 import { useJoystickStore } from '../game/store';
 import { useTransitionStore } from '@/app/store/transitionStore';
 import CharacterViewer from '@/components/CharacterViewer';
@@ -41,11 +41,23 @@ export default function ProfilePage() {
   const firstPartner = useCreatureStore((state: CreatureState) => state.firstPartner);
 
   const [mounted, setMounted] = useState(false);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   useEffect(() => { setMounted(true) }, []);
 
   const trainerName = mounted ? (playerName || 'Penjelajah') : '...';
   const displayPokemons = mounted ? capturedCreatures : [];
   const partner = mounted ? firstPartner : null;
+
+  const handleLogout = async () => {
+    startTransition(async () => {
+      const { auth } = await import('@/lib/firebase');
+      await auth.signOut();
+      useJoystickStore.getState().reset();
+      useCreatureStore.getState().reset();
+      router.push('/');
+      // Transition will be finished by GlobalTransition on path change
+    });
+  };
 
   return (
     <div
@@ -68,37 +80,21 @@ export default function ProfilePage() {
               // Safety: force-finish transition after 1.5s in case path-change listener misses it
               setTimeout(() => finishTransition(), 1500);
             }}
-              className="w-12 h-12 md:w-16 md:h-16 bg-white border-[4px] border-[#374151] rounded-full flex items-center justify-center hover:bg-[#FEF08A] hover:-translate-x-1 hover:-translate-y-1 transition-transform text-[#374151] text-4xl md:text-5xl font-black"
+              className="w-12 h-12 md:w-16 md:h-16 bg-white border-4 border-[#374151] rounded-full flex items-center justify-center hover:bg-[#FEF08A] hover:scale-110 transition-transform text-[#374151] text-4xl md:text-5xl font-black cursor-pointer"
             >
-              ←
+              <MoveLeft />
             </button>
-            <h1 className="text-4xl sm:text-5xl md:text-8xl font-black text-[#374151] tracking-tight mt-1 md:mt-3">
+            <h1 className="text-4xl sm:text-5xl md:text-6xl font-black text-[#374151] tracking-tight mt-1 md:mt-3">
               Info Penjelajah
             </h1>
           </div>
-          <button
-            onClick={async () => {
-              startTransition(async () => {
-                const { auth } = await import('@/lib/firebase');
-                await auth.signOut();
-                useJoystickStore.getState().reset();
-                useCreatureStore.getState().reset();
-                router.push('/');
-                // Transition will be finished by GlobalTransition on path change
-              });
-            }}
-            className="px-6 py-2 bg-[#F59E0B] hover:bg-[#D97706] text-white border-[4px] border-[#374151] rounded-2xl shadow-[4px_4px_0_#374151] hover:translate-x-0.5 hover:translate-y-0.5 hover:shadow-none transition-all text-2xl font-black"
-          >
-            Keluar
-          </button>
         </header>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-0 md:gap-6 lg:gap-8 flex-1">
           {/* Left Column */}
-          <div className="lg:col-span-5 flex flex-col gap-0 md:gap-6 border-b-[4px] border-[#374151] md:border-none">
-
+          <div className="lg:col-span-5 flex flex-col gap-0 md:gap-6 border-b-4 border-[#374151] md:border-none">
             {/* Character Viewer */}
-            <div className="bg-[#FEF08A] border-b-[4px] md:border-[4px] border-[#374151] md:rounded-[32px] p-4 md:p-5 relative group">
+            <div className="bg-[#FEF08A] border-b-4 md:border-4 border-[#374151] md:rounded-[32px] p-4 md:p-5 relative group">
               <h2 className="text-[#374151] text-3xl font-black uppercase mb-3 tracking-widest pl-2 md:pl-0 flex items-center gap-3">
                 <span className="bg-white border-[3px] border-[#374151] rounded-xl px-3 py-1 rotate-[-4deg] inline-block group-hover:rotate-[4deg] transition-transform">
                   <Sparkles className="w-6 h-6 text-[#D97706]" />
@@ -113,12 +109,11 @@ export default function ProfilePage() {
             <TrainerInfo
               name={trainerName}
               pokemonCount={displayPokemons.length}
-              friendCount={0}
             />
 
             {/* ── First Partner Card ─────────────────── */}
             {partner && (
-              <div className="bg-white border-b-[4px] md:border-[4px] border-[#374151] md:rounded-[32px] p-4 md:p-5 relative group overflow-hidden">
+              <div className="bg-white border-b-4 md:border-4 border-[#374151] md:rounded-[32px] p-4 md:p-5 relative group overflow-hidden">
                 {/* Top badge */}
                 <div className="absolute -top-1 right-4 bg-[#D97706] text-white text-base font-black px-3 py-0.5 rounded-b-xl border-x-[3px] border-b-[3px] border-[#374151] shadow-[2px_2px_0_#374151] flex items-center gap-1.5">
                   <Star className="w-3.5 h-3.5" strokeWidth={3} />
@@ -182,7 +177,7 @@ export default function ProfilePage() {
                     </div>
 
                     {/* EXP Bar */}
-                    <div className="mt-2">
+                    <div className="mt-2 text-left">
                       <div className="flex justify-between text-lg text-[#374151]/70 font-bold mb-1">
                         <span>EXP</span>
                         <span>{partner.exp}/{30 + (partner.level || 1) * 20}</span>
@@ -213,12 +208,59 @@ export default function ProfilePage() {
               </div>
 
               <div className="relative z-10 flex-1">
-                <PokemonGrid pokemons={displayPokemons} />
+                <div className="w-full h-full">
+                  <PokemonGrid pokemons={displayPokemons} />
+                </div>
               </div>
             </div>
           </div>
         </div>
+
+        {/* Sign Out Button - Responsive Position at bottom of content */}
+        <div className="mt-8 md:mt-12 mb-8 md:mb-0 flex justify-center md:justify-start w-full">
+          <button
+            onClick={() => setShowLogoutConfirm(true)}
+            className="px-8 py-3 bg-[#F59E0B] hover:bg-[#D97706] text-white border-4 border-[#374151] rounded-2xl shadow-[4px_4px_0_#374151] hover:translate-x-0.5 hover:translate-y-0.5 hover:shadow-none transition-all text-2xl font-black whitespace-nowrap"
+          >
+            Sign Out
+          </button>
+        </div>
       </div>
+
+      {/* Logout Confirmation Modal */}
+      {showLogoutConfirm && (
+        <div className="fixed inset-0 z-100 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
+          <div 
+            className="bg-[#FFF9E6] border-[6px] border-[#374151] rounded-[32px] p-8 md:p-10 max-w-md w-full shadow-[0_20px_0_#374151] transform animate-in zoom-in-95 duration-200"
+            style={{ fontFamily: 'var(--font-nanum-pen)' }}
+          >
+            <div className="flex flex-col items-center text-center gap-8">
+              <div className="bg-[#FEF08A] border-4 border-[#374151] rounded-full p-4 rotate-[-3deg]">
+                <Shield className="w-12 h-12 text-[#F59E0B]" />
+              </div>
+              
+              <h3 className="text-4xl md:text-5xl font-black text-[#374151] leading-tight mt-2">
+                Apakah anda yakin ingin sign out dari akun ini?
+              </h3>
+
+              <div className="flex flex-col sm:flex-row gap-4 w-full mt-4">
+                <button
+                  onClick={handleLogout}
+                  className="flex-1 py-4 bg-[#F87171] hover:bg-[#EF4444] text-white border-4 border-[#374151] rounded-2xl shadow-[4px_4px_0_#374151] hover:translate-x-0.5 hover:translate-y-0.5 hover:shadow-none transition-all text-3xl font-black"
+                >
+                  Iya
+                </button>
+                <button
+                  onClick={() => setShowLogoutConfirm(false)}
+                  className="flex-1 py-4 bg-white hover:bg-gray-100 text-[#374151] border-4 border-[#374151] rounded-2xl shadow-[4px_4px_0_#374151] hover:translate-x-0.5 hover:translate-y-0.5 hover:shadow-none transition-all text-3xl font-black"
+                >
+                  Tidak
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
